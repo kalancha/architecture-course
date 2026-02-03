@@ -1,0 +1,40 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - Automation Service (The Brain)
+
+Container(broker, "MQTT Broker", "Infrastructure", "Шина")
+ContainerDb(db, "PostgreSQL", "DB", "Правила автоматизации")
+
+Container_Boundary(automation, "Automation Service") {
+
+    Component(event_listener, "Event Listener", "Async Consumer", "Слушает ВСЕ изменения состояний")
+
+    Component(rule_engine, "Rule Engine", "Logic Core", "Парсит условия (IF temp > 25 THEN ...)")
+
+    Component(scheduler, "Cron Scheduler", "Job Runner", "Генерирует события времени (TimeTrigger)")
+
+    Component(action_dispatcher, "Action Dispatcher", "Publisher", "Формирует команды управления")
+
+    Component(script_loader, "Scenario Loader", "Cache", "Кэширует правила из БД в память при старте")
+
+}
+
+' Initialization
+Rel(script_loader, db, "Load Rules on Startup")
+Rel(script_loader, rule_engine, "Feed Rules")
+
+' Flow 1: Event Trigger (Sensor)
+Rel(broker, event_listener, "Event: Temp = 26")
+Rel(event_listener, rule_engine, "Process(Event)")
+
+' Flow 2: Time Trigger (Schedule)
+Rel(scheduler, rule_engine, "Trigger: Time = 18:00")
+
+' Logic Execution
+Rel(rule_engine, action_dispatcher, "Match found -> Execute Action")
+
+' Output
+Rel(action_dispatcher, broker, "Pub: Command (Turn Fan ON)")
+
+@enduml

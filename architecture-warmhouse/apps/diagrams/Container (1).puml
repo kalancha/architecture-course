@@ -1,0 +1,48 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container - Warmhouse Smart Home System
+
+Person(user, "Пользователь", "Владелец")
+
+System_Boundary(smart_home, "Smart Home System") {
+
+    Container(web_app, "Web UI", "JS Framework", "SPA")
+
+    Container(core_service, "Core / Management Service", "Go / Node.js", "Единая точка входа.\nОбъединяет: API Gateway, Auth, User Topology, Device Meta.")
+
+    Container(automation_service, "Automation Service", "Go / Node.js", "Исполнение сложной логики и таймеров")
+
+    Container(connect_layer, "Connect Service", "IoT Adapter", "Драйверы и работа с железом")
+
+    Container(telemetry_service, "Telemetry Service", "Go / Node.js", "Сбор истории")
+
+    System_Boundary(pg, "PostgreSQL Cluster") {
+        ContainerDb(db_core, "Core DB", "SQL", "Пользователи, дома, комнаты, мета данные устройств")
+        ContainerDb(db_history, "Telemetry Hypertables", "TimescaleDB Tables", "Сжатая история измерений")
+    }
+
+    Container(broker, "Message Broker", "RabbitMQ / MQTT", "Связующее звено")
+}
+
+System_Ext(devices, "Hardware", "Датчики и устройства")
+
+Rel(user, web_app, "Взаимодействие с системой")
+Rel(web_app, core_service, "Взаимодействие frontend с backend")
+
+' Core interactions
+Rel(core_service, db_core, "RW")
+Rel(automation_service, db_core,"RW")
+Rel(core_service, broker, "Pub: Команды управления устройствами")
+Rel(broker, core_service, "Sub: События от датчиков")
+Rel(broker, connect_layer, "Sub: Команды управления устройствами")
+
+Rel(automation_service, core_service, "Выполнение автоматических сценариев")
+Rel(core_service, automation_service, "Настройка автоматических сценариев")
+
+Rel(broker, telemetry_service, "Sub: События от датчиков")
+Rel(broker, automation_service, "Sub: События от датчиков")
+Rel(telemetry_service, db_history, "RW")
+Rel(connect_layer, devices, "IoT взаимодействие с железом")
+
+@enduml

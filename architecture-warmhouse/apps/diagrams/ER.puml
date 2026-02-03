@@ -1,0 +1,140 @@
+@startuml
+' Настройки стиля
+skinparam linetype ortho
+hide circle
+skinparam class {
+    BackgroundColor White
+    ArrowColor Black
+    BorderColor Black
+}
+
+' --- 1. CORE DOMAIN (USER & TOPOLOGY) ---
+package "Core: User & Topology" {
+
+    entity "User" as user {
+        *id : uuid <<PK>>
+        --
+        email : varchar
+        password_hash : varchar
+        created_at : timestamp
+    }
+
+    entity "Home" as home {
+        *id : uuid <<PK>>
+        --
+        *owner_id : uuid <<FK>>
+        name : varchar
+        timezone : varchar
+    }
+
+    entity "Room" as room {
+        *id : uuid <<PK>>
+        --
+        *home_id : uuid <<FK>>
+        name : varchar (Ex: "Living Room")
+    }
+
+}
+
+' --- 2. CORE & CONNECT DOMAIN (DEVICES) ---
+package "Core & Connect: Devices" {
+
+    entity "Device" as device {
+        *id : uuid <<PK>>
+        --
+        *room_id : uuid <<FK>> (Nullable)
+        name : varchar (Ex: "Table Lamp")
+        type : varchar (Ex: "light", "sensor")
+        created_at : timestamp
+    }
+
+    ' Это "Паспорт" устройства. Технические данные для Connect Layer.
+    ' Храним в JSONB, т.к. у Zigbee свои настройки, у WiFi свои.
+    entity "Device_Passport" as passport {
+        *device_id : uuid <<PK, FK>>
+        --
+        driver_type : varchar (Ex: "zigbee", "tuya", "mqtt")
+        connectivity_config : jsonb
+        note: "{ 'ip': '192.168.1.5', 'token': 'abc', 'zigbee_addr': '0x123' }"
+    }
+
+    ' Это "Тень" устройства. Текущее состояние для UI.
+    entity "Device_Shadow" as shadow {
+        *device_id : uuid <<PK, FK>>
+        --
+        state : jsonb
+        note: "{ 'on': true, 'bri': 255, 'temp': 24.5 }"
+        last_seen : timestamp
+        is_online : boolean
+    }
+
+    ' Список возможностей (чтобы UI знал, рисовать кнопку или ползунок)
+    entity "Device_Capabilities" as capabilities {
+        *device_id : uuid <<PK, FK>>
+        --
+        features : jsonb
+        note: "['switch', 'brightness', 'color_temp']"
+    }
+
+}
+
+' --- 3. AUTOMATION DOMAIN ---
+package "Automation" {
+
+    entity "Scenario" as scenario {
+        *id : uuid <<PK>>
+        --
+        *home_id : uuid <<FK>>
+        name : varchar
+        is_active : boolean
+        cron_expression : varchar (Nullable)
+    }
+
+    ' Условие и Действие часто проще хранить как JSON структуру,
+    ' чтобы не делать сложные Join-ы для движка правил
+    entity "Rule_Block" as rule {
+        *id : uuid <<PK>>
+        --
+        *scenario_id : uuid <<FK>>
+        block_type : varchar (Ex: "trigger", "condition", "action")
+        config : jsonb
+        note: "{ 'type': 'device_state', 'dev_id': '...', 'op': '>', 'val': 25 }"
+    }
+
+}
+
+' --- 4. TELEMETRY DOMAIN (TimescaleDB) ---
+package "Telemetry" {
+
+    entity "Device_Metric" as metric {
+        *time : timestamp <<PK>>
+        *device_id : uuid <<PK, FK>>
+        --
+        metric_name : varchar (Ex: "temperature", "power")
+        value_num : double
+        value_str : varchar
+    }
+    note bottom of metric: Hypertable (TimescaleDB).\nPartitioned by time.
+
+}
+
+' --- ОТНОШЕНИЯ (RELATIONSHIPS) ---
+
+' Topology hierarchy
+user ||..o{ home : "owns"
+home ||..o{ room : "contains"
+room |o..o{ device : "contains"
+
+' Device composition (One-to-One relations)
+device ||..|| passport : "has tech specs"
+device ||..|| shadow : "has current state"
+device ||..|| capabilities : "has features"
+
+' Automation
+home ||..o{ scenario : "has scripts"
+scenario ||..|{ rule : "defined by"
+
+' Telemetry
+device ||..o{ metric : "generates history"
+
+@enduml

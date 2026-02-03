@@ -1,0 +1,32 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - Telemetry Service (Writer)
+
+Container(broker, "MQTT Broker", "Infrastructure", "Источник данных")
+ContainerDb(db, "TimescaleDB", "DB", "Хранение истории")
+
+Container_Boundary(telemetry, "Telemetry Service") {
+
+    Component(mqtt_listener, "MQTT Listener", "Consumer", "Подписан на топик '#/status'")
+
+    Component(data_mapper, "Data Map & Validation", "Logic", "Нормализует данные (JSON -> Struct), отбрасывает мусор")
+
+    Component(memory_buffer, "Memory Buffer", "In-Memory Queue", "Накапливает события (например, до 1000 шт или 5 сек)")
+
+    Component(batch_flusher, "Batch Flusher", "Background Worker", "Сбрасывает буфер в БД одной транзакцией")
+
+    Component(repo, "Telemetry Repo", "SQL Driver", "Выполняет Bulk Insert (COPY / Insert ... Values ...)")
+
+}
+
+' Flow
+Rel(broker, mqtt_listener, "Event Stream")
+Rel(mqtt_listener, data_mapper, "Raw Bytes")
+Rel(data_mapper, memory_buffer, "Struct push")
+
+Rel(batch_flusher, memory_buffer, "Take All")
+Rel(batch_flusher, repo, "Send Batch")
+Rel(repo, db, "Write Efficiently")
+
+@enduml

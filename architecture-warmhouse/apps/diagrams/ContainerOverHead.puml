@@ -1,0 +1,56 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container Diagram - Smart Home System (PostgreSQL + ClickHouse)
+
+Person(user, "Пользователь", "Владелец умного дома")
+
+System_Boundary(smart_home, "Smart Home System") {
+
+    Container(web_app, "Web Interface", "JS Framework", "Дашборд и управление")
+    Container(api_gateway, "Gateway", "Go, JS", "BFF, Auth, API Aggregation")
+
+    Container(user_service, "UserData Service", "Backend Service", "Управление пользователями и топологией")
+    Container(device_meta, "Device Metadata Service", "Backend Service", "Хранение текущего state и meta")
+    Container(automation_service, "Automation Service", "Backend Service + Scheduler", "Сценарии (Rules engine)")
+    Container(telemetry_service, "Telemetry Service", "Backend Service", "Буферизация и запись истории")
+    Container(connect_layer, "Connect Layer", "IoT Drivers + Polling", "Общение с железом")
+
+    System_Boundary(pg_cluster, "Operational Database (PostgreSQL Instance)") {
+        ContainerDb(db_user, "User & Topology Schema", "PostgreSQL", "Users, Homes, Rooms refs")
+        ContainerDb(db_device_meta, "Device Metadata Schema", "PostgreSQL (JSONB)", "Last known state, names, settings")
+        ContainerDb(db_device_passport, "Device Hardware Data Schema", "PostgreSQL", "Drivers configs, Protocols, Tokens")
+    }
+
+    ContainerDb(db_telemetry, "Telemetry Storage", "ClickHouse", "Колоночная БД для быстрой выборки истории")
+
+    Container(msg_broker, "Message Broker", "RabbitMQ / MQTT", "Event Bus")
+}
+
+System_Ext(physical_devices, "Датчики и устройства", "Hardware")
+
+
+Rel(user, web_app, "Взаимодействие с системой")
+Rel(web_app, api_gateway, "Взаимодействие frontend с backend")
+
+Rel(api_gateway, user_service, "Получение информации о пользователе и его мета данных")
+Rel(api_gateway, device_meta, "Получение информации о устройствах и их мета данных")
+Rel(api_gateway, automation_service, "Настройка автоматических сценариев")
+Rel(api_gateway, connect_layer, "Привязка устройств")
+Rel(api_gateway, msg_broker, "Pub: Команды управления устройствами")
+
+Rel(user_service, db_user, "SQL RW")
+Rel(device_meta, db_device_meta, "SQL RW")
+Rel(connect_layer, db_device_passport, "SQL R")
+Rel(telemetry_service, db_telemetry, "SQL RW")
+
+Rel(connect_layer, physical_devices, "IoT")
+Rel(connect_layer, msg_broker, "Pub: События от датчиков")
+
+Rel(msg_broker, device_meta, "Sub: Обновление мета данных устройств")
+Rel(msg_broker, telemetry_service, "Sub: Сохранение истории измерений")
+Rel(msg_broker, connect_layer, "Sub: Выполнение команд управления")
+
+Rel(automation_service, msg_broker, "Pub: Команды управления устройствами")
+
+@enduml
