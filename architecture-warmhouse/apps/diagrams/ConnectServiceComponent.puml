@@ -1,45 +1,36 @@
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-title Component Diagram - Connect Service (IoT Adapter)
+title Component Diagram - Connect Service
+
 
 Container(broker, "MQTT Broker", "Infrastructure", "Шина")
 ContainerDb(db, "PostgreSQL", "DB", "Для чтения конфигов драйверов (optional)")
-System_Ext(hardware, "Physical Devices", "Железо")
+System_Ext(hardware, "Physical Devices", "Датчики и устройства")
 
 Container_Boundary(connect, "Connect Service") {
-
     Component(driver_manager, "Driver Manager", "Core Logic", "Загружает драйверы, управляет их жизненным циклом")
 
     Component(mqtt_adapter, "MQTT Adapter", "Messaging", "Преобразует MQTT топики в вызовы драйверов и наоборот")
 
-    Component(polling_scheduler, "Polling Loop", "Timer", "Периодически пинает драйверы для опроса устройств")
-
-    ' --- Driver Implementation ---
-    Component(driver_zigbee, "Zigbee Driver", "Interface Implementation", "Работает с Zigbee стиком")
+    Component(driver_zigbee, "Zigbee Driver", "Interface Implementation", "Работает с Zigbee")
     Component(driver_wifi, "WiFi/HTTP Driver", "Interface Implementation", "Работает с REST API устройств")
-    Component(driver_tuya, "Tuya Driver", "Interface Implementation", "Proprietary protocol")
 
 }
 
 ' Flow: Initialization
-Rel(driver_manager, db, "Load Configs (IPs, Keys)", "SQL")
+Rel(driver_manager, db, "Информация о драйверах и устройствах", "SQL")
 
-' Flow: Incoming Command from System
-Rel(broker, mqtt_adapter, "Sub: Command (cmd/light/on)")
-Rel(mqtt_adapter, driver_manager, "Route Command")
-Rel(driver_manager, driver_zigbee, "Call SetState()")
-Rel(driver_manager, driver_wifi, "Call SetState()")
+Rel(broker, mqtt_adapter, "Sub: Команды управления устройствами")
+Rel(mqtt_adapter, driver_manager, "команды управления")
+Rel(driver_manager, driver_zigbee, "Команда управления")
+Rel(driver_manager, driver_wifi, "Команда управления")
 
-' Flow: Polling
-Rel(polling_scheduler, driver_manager, "Tick")
+Rel(driver_zigbee, hardware, "MQTT/HTTP")
+Rel(driver_wifi, hardware, "MQTT/HTTP")
 
-' Flow: Hardware Communication
-Rel(driver_zigbee, hardware, "Serial/Zigbee")
-Rel(driver_wifi, hardware, "HTTP/UDP")
-
-' Flow: Event Reporting
-Rel(driver_zigbee, mqtt_adapter, "Return new state")
-Rel(mqtt_adapter, broker, "Pub: Event (stat/light/on)")
+Rel(driver_zigbee, mqtt_adapter, "Возвращает новое состояние устройства")
+Rel(driver_wifi, mqtt_adapter, "Возвращает новое состояние устройства")
+Rel(mqtt_adapter, broker, "Pub: События от датчиков")
 
 @enduml

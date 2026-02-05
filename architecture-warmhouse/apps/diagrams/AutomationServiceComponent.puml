@@ -1,40 +1,24 @@
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-title Component Diagram - Automation Service (The Brain)
+title Component Diagram - Automation Service
 
 Container(broker, "MQTT Broker", "Infrastructure", "Шина")
 ContainerDb(db, "PostgreSQL", "DB", "Правила автоматизации")
 
 Container_Boundary(automation, "Automation Service") {
+    Component(rule_engine, "Rule Engine", "Logic Core", "Проверяет условия выполнения автоматизаций и уведомлений")
 
-    Component(event_listener, "Event Listener", "Async Consumer", "Слушает ВСЕ изменения состояний")
-
-    Component(rule_engine, "Rule Engine", "Logic Core", "Парсит условия (IF temp > 25 THEN ...)")
-
-    Component(scheduler, "Cron Scheduler", "Job Runner", "Генерирует события времени (TimeTrigger)")
-
-    Component(action_dispatcher, "Action Dispatcher", "Publisher", "Формирует команды управления")
-
-    Component(script_loader, "Scenario Loader", "Cache", "Кэширует правила из БД в память при старте")
-
+    Component(scheduler, "Cron Scheduler", "Job Runner", "Генерирует триггеры на временные события")
 }
 
-' Initialization
-Rel(script_loader, db, "Load Rules on Startup")
-Rel(script_loader, rule_engine, "Feed Rules")
+Rel(broker, rule_engine, "События от датчиков")
 
-' Flow 1: Event Trigger (Sensor)
-Rel(broker, event_listener, "Event: Temp = 26")
-Rel(event_listener, rule_engine, "Process(Event)")
+Rel(scheduler, rule_engine, "Триггеры времени")
 
-' Flow 2: Time Trigger (Schedule)
-Rel(scheduler, rule_engine, "Trigger: Time = 18:00")
+Rel(rule_engine, db, "Выгрузка в память правила автоматизаций и уведомлений")
+Rel(scheduler, db, "Выгрузка в память данных о событиях для cron")
 
-' Logic Execution
-Rel(rule_engine, action_dispatcher, "Match found -> Execute Action")
-
-' Output
-Rel(action_dispatcher, broker, "Pub: Command (Turn Fan ON)")
+Rel(rule_engine, broker, "Команды управления устройствами и события уведомлений")
 
 @enduml

@@ -1,0 +1,108 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Class Diagram - Automation Engine
+
+package "Infrastructure" {
+    class "MqttClient" as Mqtt {
+        + Subscribe(topic)
+        + Publish(topic, payload)
+    }
+
+    interface "IStateProvider" as StateProv {
+        + GetCurrentState(deviceId): State
+    }
+}
+
+package "Domain: Logic Core" {
+
+    class AutomationEngine {
+        - rules: List<Rule>
+        - stateCache: IStateProvider
+        + ReloadRules()
+        + OnEventReceived(event: DeviceEvent)
+    }
+
+    class Rule {
+        + ID: string
+        + Name: string
+        + IsActive: boolean
+        - triggers: List<ITrigger>
+        - conditions: ICondition
+        - actions: List<IAction>
+        + Evaluate(event, context): boolean
+        + Execute(context)
+    }
+
+    ' --- TRIGGERS ---
+    interface ITrigger {
+        + IsTriggered(event: DeviceEvent): boolean
+    }
+
+    class StateChangeTrigger implements ITrigger {
+        - deviceId: string
+        - targetState: any
+        + IsTriggered(event): boolean
+    }
+
+    class TimeTrigger implements ITrigger {
+        - cronExpression: string
+        + IsTriggered(event): boolean
+    }
+
+    ' --- CONDITIONS (Composite Pattern) ---
+    interface ICondition {
+        + Check(context: IStateProvider): boolean
+    }
+
+    class DeviceStateCondition implements ICondition {
+        - deviceId: string
+        - operator: string  (>, <, =, !=)
+        - value: any
+        + Check(ctx): boolean
+    }
+
+    class TimeRangeCondition implements ICondition {
+        - startTime: Time
+        - endTime: Time
+        + Check(ctx): boolean
+    }
+
+    class CompositeCondition implements ICondition {
+        - type: AND | OR
+        - children: List<ICondition>
+        + Check(ctx): boolean
+    }
+
+    ' --- ACTIONS (Command Pattern) ---
+    interface IAction {
+        + Perform(broker: MqttClient)
+    }
+
+    class DeviceCommandAction implements IAction {
+        - deviceId: string
+        - payload: json
+        + Perform(broker)
+    }
+
+    class NotifyAction implements IAction {
+        - userId: string
+        - message: string
+        + Perform(broker)
+    }
+
+}
+
+' Relations
+AutomationEngine o-- Rule : manages >
+AutomationEngine --> StateProv : uses
+AutomationEngine --> Mqtt : sends commands via
+
+Rule *-- ITrigger
+Rule *-- ICondition
+Rule *-- IAction
+
+CompositeCondition o-- ICondition : contains >
+
+@enduml

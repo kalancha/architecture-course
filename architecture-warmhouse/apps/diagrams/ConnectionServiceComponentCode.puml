@@ -1,0 +1,79 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+title Class Diagram - Connect Layer (Driver Architecture)
+
+package "Core Logic" {
+
+    class ConnectManager {
+        - drivers: Map<string, IDriver>
+        - mqttAdapter: MqttAdapter
+        + LoadConfig(configs: List<Passport>)
+        + OnCommandReceived(deviceId, cmd)
+        + PollAll()
+    }
+
+    class MqttAdapter {
+        + SendEvent(deviceId, state)
+        + SubscribeToCommands()
+    }
+
+}
+
+package "Driver Abstraction" {
+
+    interface IDriver {
+        + Connect(): error
+        + Disconnect()
+        + SetState(state: json): error
+        + Ping(): boolean
+    }
+
+    abstract class BaseDriver implements IDriver {
+        # config: DevicePassport
+        # lastSeen: timestamp
+        # LogError(msg)
+    }
+
+}
+
+package "Protocol Implementations" {
+
+    class ZigbeeDriver extends BaseDriver {
+        - serialPort: string
+        - zigbeeAddress: string
+        + SetState(state)
+        ' Реализует отправку байтов в COM-порт
+    }
+
+    class HttpDriver extends BaseDriver {
+        - ipAddress: string
+        - token: string
+        + SetState(state)
+        ' Реализует HTTP POST запрос
+    }
+
+    class TuyaDriver extends BaseDriver {
+        - deviceKey: string
+        - protocolVer: string
+        + SetState(state)
+        ' Реализует шифрованный TCP протокол
+    }
+
+    class DriverFactory {
+        + CreateDriver(type: string, config: Passport): IDriver
+    }
+
+}
+
+' Relations
+ConnectManager o-- IDriver : manages >
+ConnectManager --> MqttAdapter : uses
+ConnectManager ..> DriverFactory : uses to create
+
+DriverFactory ..> ZigbeeDriver : creates
+DriverFactory ..> HttpDriver : creates
+DriverFactory ..> TuyaDriver : creates
+
+@enduml

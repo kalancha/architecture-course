@@ -15,12 +15,8 @@ System_Boundary(smart_home, "Smart Home System") {
 
     Container(connect_layer, "Connect Service", "IoT Adapter", "Драйверы и работа с железом")
 
-    Container(telemetry_service, "Telemetry Service", "Go / Node.js", "Сбор истории")
-
-    System_Boundary(pg, "PostgreSQL Cluster") {
-        ContainerDb(db_core, "Core DB", "SQL", "Пользователи, дома, комнаты, мета данные устройств")
-        ContainerDb(db_history, "Telemetry Hypertables", "TimescaleDB Tables", "Сжатая история измерений")
-    }
+    Container(notification_service, "Notification Service", "Go / Node.js", "Сервис уведомлений")
+    ContainerDb(db_core, "DataBase", "PostreSQL", "Пользователи, дома, комнаты, мета данные устройств")
 
     Container(broker, "Message Broker", "RabbitMQ / MQTT", "Связующее звено")
 }
@@ -36,13 +32,15 @@ Rel(automation_service, db_core,"RW")
 Rel(core_service, broker, "Pub: Команды управления устройствами")
 Rel(broker, core_service, "Sub: События от датчиков")
 Rel(broker, connect_layer, "Sub: Команды управления устройствами")
+Rel(connect_layer, broker, "Pub: События от датчиков")
 
 Rel(automation_service, core_service, "Выполнение автоматических сценариев")
 Rel(core_service, automation_service, "Настройка автоматических сценариев")
 
-Rel(broker, telemetry_service, "Sub: События от датчиков")
+Rel(broker, notification_service, "Sub: События уведомлений")
 Rel(broker, automation_service, "Sub: События от датчиков")
-Rel(telemetry_service, db_history, "RW")
+Rel(automation_service, broker, "Pub: События уведомлений")
+Rel(notification_service, db_core, "RW")
 Rel(connect_layer, devices, "IoT взаимодействие с железом")
 
 @enduml

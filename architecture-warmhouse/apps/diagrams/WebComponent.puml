@@ -1,41 +1,42 @@
 @startuml
 !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
 
-title Component Diagram - Web Application (SPA)
+title Component Diagram - Web Application
 
+Person(user, "Пользователь", "Владелец")
 Container(core_api, "Core Service API", "Backend", "REST endpoints")
 
-Container_Boundary(web, "Web Application (React/Vue)") {
+Container_Boundary(web, "Web Application (React)") {
 
-    ' Routing & Views
     Component(router, "Router", "Library", "Управление навигацией")
-    Component(view_dashboard, "Dashboard Page", "View Component", "Отображает виджеты и графики")
-    Component(view_settings, "Settings Page", "View Component", "Формы настройки устройств")
 
-    ' State Management (Redux/Pinia/MobX)
-    Component(store_devices, "Device Store", "State Manager", "Хранит список устройств и их текущие статусы в памяти браузера")
-    Component(store_auth, "Auth Store", "State Manager", "Хранит токен пользователя")
+    Container_Boundary(views, "Views") {
+        Component(view_dashboard, "Main Page", "View Component", "Отображает комнаты и устройства")
+        Component(view_settings, "Settings Page", "View Component", "Настройки пользователя: дома, комнаты, устройства")
+        Component(view_devices, "Devices Page", "View Component", "Управление устройствами и автоматическими сценариями")
+    }
 
-    ' API Clients
-    Component(api_client, "HTTP Client", "Axios/Fetch", "Настроенный клиент (Interceptors, Headers)")
+    Component(redux_actions, "Redux Async Actions", "Redux Thunk", "Асинхронные действия для Redux")
+    Component(store, "Store", "State Manager", "Хранит данные из бекенда")
+
+    Component(api_client, "HTTP Client", "Axios/Fetch", "Клиент для запросов к бекенду")
     Component(ws_client, "WebSocket Client", "Socket.io/Native", "Слушает обновления в реальном времени чтобы не делать F5")
 
 }
 
-' User Flow
-Rel(router, view_dashboard, "Renders")
-Rel(router, view_settings, "Renders")
+Rel(user, router, "Взаимодействие с системой")
 
-' State connections
-Rel(view_dashboard, store_devices, "Subscribes to updates")
-Rel(view_settings, store_devices, "Dispatches actions")
-Rel(view_dashboard, store_auth, "Checks login")
+Rel(router, views, "Renders")
+Rel(views, store, "Получение данных")
 
-' Network
-Rel(store_devices, api_client, "Load Initial State")
-Rel(store_devices, ws_client, "Receive Live Updates")
+Rel(views, ws_client, "Создание подписки на события от бекенда")
+Rel(views, redux_actions, "Dispatch событий")
 
-Rel(api_client, core_api, "HTTPS JSON")
-Rel(ws_client, core_api, "WSS Events")
+Rel(redux_actions, api_client, "Запросы к бекенду")
+Rel(redux_actions, store, "Обновление данных в store")
+Rel(ws_client, store, "Обновление данных в store")
+
+Rel(api_client, core_api, "API calls [REST]")
+Rel(ws_client, core_api, "WSS Events [WebSocket]")
 
 @enduml

@@ -1,0 +1,47 @@
+@startuml
+
+skinparam queue {
+    BorderColor Black
+}
+skinparam queue<<Events>> {
+    BackgroundColor LightGreen
+}
+skinparam queue<<Commands>> {
+    BackgroundColor LightBlue
+}
+skinparam queue<<Notify>> {
+    BackgroundColor Pink
+}
+
+title Broker Component
+
+package "RabbitMQ / MQTT Broker" {
+
+    queue "1. События от датчиков" as events <<Events>>
+    note bottom: Топик: home/events/+/state\n(Температура, Вкл/Выкл)
+
+    queue "2. Команды устройствам" as commands <<Commands>>
+    note bottom: Топик: home/commands/+/set\n(Включить, Изменить цвет)
+
+    queue "3. Уведомления" as notify <<Notify>>
+    note bottom: Топик: sys/notify/dispatch\n(Текст сообщения, UserID)
+
+}
+
+component "Connect Service" as connect
+component "Core Service" as core
+component "Automation Service" as auto
+component "Notifier Service" as notifier
+
+connect -down-> events : Pub\n(Датчик сработал)
+events -up-> core : Sub (Обновить UI)
+events -up-> auto : Sub (Проверить логику)
+
+core -down-> commands : Pub\n(Команда от юзера)
+auto -down-> commands : Pub\n(Сработал сценарий)
+commands -up-> connect : Sub (Выполнить)
+
+auto -down-> notify : Pub\n(Новое событие)
+notify -up-> notifier : Sub (Уведомление)
+
+@enduml

@@ -1,0 +1,45 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C4 Component Diagram - Notifier Service
+
+' Внешние зависимости
+Container(broker, "Broker", "RabbitMQ", "Получение задач")
+ContainerDb(db_core, "Core DB", "PostgreSQL", "Чтение настроек пользователей (ChatID)")
+System_Ext(telegram_api, "Telegram API", "Cloud", "Внешний мессенджер")
+
+Container_Boundary(notifier, "Notifier Service") {
+
+    ' --- ВХОДЯЩИЕ ИНТЕРФЕЙСЫ ---
+    Component(mqtt_listener, "MQTT Consumer", "Go Channel", "Слушает топик sys/notify/dispatch")
+    Component(webhook_server, "Webhook Server", "HTTP Handler", "Принимает входящие хуки от Telegram (команда /start)")
+
+    ' --- ЛОГИКА ---
+    Component(dispatcher, "Dispatcher Logic", "Service", "Определяет тип уведомления (Info/Alarm) и провайдер (TG/Push)")
+
+    Component(auth_linker, "Auth Linker", "Logic", "Парсит токен из /start и формирует событие привязки")
+
+    ' --- РАБОТА С ДАННЫМИ ---
+    Component(user_repo, "User Settings Repo", "SQL Driver", "SELECT telegram_id FROM users WHERE id = ...")
+
+    ' --- АДАПТЕРЫ ---
+    Component(tg_client, "Telegram Client", "HTTP Client", "Обёртка над Telegram Bot API")
+    Component(event_pub, "Event Publisher", "MQTT Producer", "Отправляет события (например, user_linked)")
+
+}
+
+' --- ФЛОУ ОТПРАВКИ (SENDING) ---
+Rel(broker, mqtt_listener, "1. Команда: {user_id, msg}")
+Rel(mqtt_listener, dispatcher, "Передает задачу")
+Rel(dispatcher, user_repo, "2. Запрашивает ChatID")
+Rel(user_repo, db_core, "SQL Select")
+Rel(dispatcher, tg_client, "3. Отдает готовое сообщение")
+Rel(tg_client, telegram_api, "POST /sendMessage")
+
+' --- ФЛОУ ПРИВЯЗКИ (PAIRING) ---
+Rel(telegram_api, webhook_server, "A. Юзер нажал /start XXXXX")
+Rel(webhook_server, auth_linker, "Передает токен")
+Rel(auth_linker, event_pub, "Формирует событие")
+Rel(event_pub, broker, "B. Pub: sys/telegram/linked")
+
+@enduml

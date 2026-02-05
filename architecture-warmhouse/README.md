@@ -1,60 +1,142 @@
-# Smart Home Sensor Management API
+# Project_template
 
-## Prerequisites
+Это шаблон для решения проектной работы. Структура этого файла повторяет структуру заданий. Заполняйте его по мере работы над решением.
 
-- Docker and Docker Compose
+# Задание 1. Анализ и планирование
 
-## Getting Started
+<aside>
 
-### Option 1: Using Docker Compose (Recommended)
+Чтобы составить документ с описанием текущей архитектуры приложения, можно часть информации взять из описания компании и условия задания. Это нормально.
 
-The easiest way to start the application is to use Docker Compose:
+</aside
 
-```bash
-./init.sh
+### 1. Описание функциональности монолитного приложения
+
+**Управление отоплением:**
+
+- Пользователи могут…
+- Система поддерживает…
+- …
+
+**Мониторинг температуры:**
+
+- Пользователи могут…
+- Система поддерживает…
+- …
+
+### 2. Анализ архитектуры монолитного приложения
+
+Перечислите здесь основные особенности текущего приложения: какой язык программирования используется, какая база данных, как организовано взаимодействие между компонентами и так далее.
+
+### 3. Определение доменов и границы контекстов
+
+Опишите здесь домены, которые вы выделили.
+
+### **4. Проблемы монолитного решения**
+
+- …
+- …
+- …
+
+Если вы считаете, что текущее решение не вызывает проблем, аргументируйте свою позицию.
+
+### 5. Визуализация контекста системы — диаграмма С4
+
+Добавьте сюда диаграмму контекста в модели C4.
+
+Чтобы добавить ссылку в файл Readme.md, нужно использовать синтаксис Markdown. Это делают так:
+
+```markdown
+[Текст ссылки](URL)
 ```
 
-This script will:
+Замените `Текст ссылки` текстом, который хотите использовать для ссылки. Вместо `URL` вставьте адрес, на который должна вести ссылка. Например:
 
-1. Build and start the PostgreSQL and application containers
-2. Wait for the services to be ready
-3. Display information about how to access the API
-
-Alternatively, you can run Docker Compose directly:
-
-```bash
-docker-compose up -d
+```markdown
+[Посетите Яндекс](https://ya.ru/)
 ```
 
-The API will be available at http://localhost:8080
+# Задание 2. Проектирование микросервисной архитектуры
 
-### Option 2: Manual setup
+В этом задании вам нужно предоставить только диаграммы в модели C4. Мы не просим вас отдельно описывать получившиеся микросервисы и то, как вы определили взаимодействия между компонентами To-Be системы. Если вы правильно подготовите диаграммы C4, они и так это покажут.
 
-If you prefer to run the application without Docker:
+**Диаграмма контейнеров (Containers)**
 
-1. Start the PostgreSQL database:
+Добавьте диаграмму.
 
-```bash
-docker-compose up -d postgres
+**Диаграмма компонентов (Components)**
+
+Добавьте диаграмму для каждого из выделенных микросервисов.
+
+**Диаграмма кода (Code)**
+
+Добавьте одну диаграмму или несколько.
+
+# Задание 3. Разработка ER-диаграммы
+
+Добавьте сюда ER-диаграмму. Она должна отражать ключевые сущности системы, их атрибуты и тип связей между ними.
+
+# Задание 4. Создание и документирование API
+
+### 1. Тип API
+
+Укажите, какой тип API вы будете использовать для взаимодействия микросервисов. Объясните своё решение.
+
+### 2. Документация API
+
+Здесь приложите ссылки на документацию API для микросервисов, которые вы спроектировали в первой части проектной работы. Для документирования используйте Swagger/OpenAPI или AsyncAPI.
+
+# Задание 5. Работа с docker и docker-compose
+
+Перейдите в apps.
+
+Там находится приложение-монолит для работы с датчиками температуры. В README.md описано как запустить решение.
+
+Вам нужно:
+
+1) сделать простое приложение temperature-api на любом удобном для вас языке программирования, которое при запросе /temperature?location= будет отдавать рандомное значение температуры.
+
+Locations - название комнаты, sensorId - идентификатор названия комнаты
+
+```
+	// If no location is provided, use a default based on sensor ID
+	if location == "" {
+		switch sensorID {
+		case "1":
+			location = "Living Room"
+		case "2":
+			location = "Bedroom"
+		case "3":
+			location = "Kitchen"
+		default:
+			location = "Unknown"
+		}
+	}
+
+	// If no sensor ID is provided, generate one based on location
+	if sensorID == "" {
+		switch location {
+		case "Living Room":
+			sensorID = "1"
+		case "Bedroom":
+			sensorID = "2"
+		case "Kitchen":
+			sensorID = "3"
+		default:
+			sensorID = "0"
+		}
+	}
 ```
 
-2. Build and run the application:
+2) Приложение следует упаковать в Docker и добавить в docker-compose. Порт по умолчанию должен быть 8081
 
-```bash
-go build -o smarthome
-./smarthome
-```
+3) Кроме того для smart_home приложения требуется база данных - добавьте в docker-compose файл настройки для запуска postgres с указанием скрипта инициализации ./smart_home/init.sql
 
-## API Testing
+Для проверки можно использовать Postman коллекцию smarthome-api.postman_collection.json и вызвать:
 
-A Postman collection is provided for testing the API. Import the `smarthome-api.postman_collection.json` file into Postman to get started.
+- Create Sensor
+- Get All Sensors
 
-## API Endpoints
+Должно при каждом вызове отображаться разное значение температуры
 
-- `GET /health` - Health check
-- `GET /api/v1/sensors` - Get all sensors
-- `GET /api/v1/sensors/:id` - Get a specific sensor
-- `POST /api/v1/sensors` - Create a new sensor
-- `PUT /api/v1/sensors/:id` - Update a sensor
-- `DELETE /api/v1/sensors/:id` - Delete a sensor
-- `PATCH /api/v1/sensors/:id/value` - Update a sensor's value and status
+Ревьюер будет проверять точно так же.
