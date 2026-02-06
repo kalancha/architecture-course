@@ -1,5 +1,8 @@
 @startuml
+skinparam defaultTextAlignment center
+skinparam componentStyle uml2
 
+' Настройка цветов для разных типов
 skinparam queue {
     BorderColor Black
 }
@@ -12,36 +15,56 @@ skinparam queue<<Commands>> {
 skinparam queue<<Notify>> {
     BackgroundColor Pink
 }
+skinparam queue<<System>> {
+    BackgroundColor LightYellow
+}
 
-title Broker Component
+title Broker Component & Data Flow (with Telegram)
 
 package "RabbitMQ / MQTT Broker" {
 
     queue "1. События от датчиков" as events <<Events>>
-    note bottom: Топик: home/events/+/state\n(Температура, Вкл/Выкл)
+    note bottom: Топик: home/events/+/state\n(Температура изменилась, движение обнаружено)
 
     queue "2. Команды устройствам" as commands <<Commands>>
     note bottom: Топик: home/commands/+/set\n(Включить, Изменить цвет)
 
-    queue "3. Уведомления" as notify <<Notify>>
-    note bottom: Топик: sys/notify/dispatch\n(Текст сообщения, UserID)
+    queue "3. Уведомления (Dispatch)" as notify <<Notify>>
+    note bottom: Топик: sys/notify/dispatch\n(Payload: {userID, text})
+
+    queue "4. Системные / Привязка" as sys_link <<System>>
+    note bottom: Топик: sys/telegram/linked\n(Payload: {token, chatID})
 
 }
 
+' Наши сервисы
 component "Connect Service" as connect
 component "Core Service" as core
 component "Automation Service" as auto
 component "Notifier Service" as notifier
 
-connect -down-> events : Pub\n(Датчик сработал)
-events -up-> core : Sub (Обновить UI)
-events -up-> auto : Sub (Проверить логику)
+' Внешний мир
+cloud "Telegram API" as tg_cloud
 
-core -down-> commands : Pub\n(Команда от юзера)
-auto -down-> commands : Pub\n(Сработал сценарий)
-commands -up-> connect : Sub (Выполнить)
+' --- 1. ПОТОК ДАННЫХ (ОТ ЖЕЛЕЗА) ---
+connect -down-> events : Pub
+events -up-> core : Sub (UI)
+events -up-> auto : Sub (Logic)
 
-auto -down-> notify : Pub\n(Новое событие)
-notify -up-> notifier : Sub (Уведомление)
+' --- 2. ПОТОК УПРАВЛЕНИЯ (К ЖЕЛЕЗУ) ---
+core -down-> commands : Pub
+auto -down-> commands : Pub
+commands -up-> connect : Sub
+
+' --- 3. ПОТОК УВЕДОМЛЕНИЙ (К ПОЛЬЗОВАТЕЛЮ) ---
+auto -down-> notify : Pub (Уведомления от автоматизаций и датчиков)
+core -down-> notify : Pub (Системные уведомления)
+notify -up-> notifier : Sub
+notifier -right-> tg_cloud : HTTPS POST\n(Отправка)
+
+' --- 4. ПОТОК ПРИВЯЗКИ (ОТ ПОЛЬЗОВАТЕЛЯ) ---
+tg_cloud -left-> notifier : Webhook\n(/start)
+notifier -up-> sys_link : Pub (Привязка)
+sys_link -up-> core : Sub (Сохранение в БД)
 
 @enduml

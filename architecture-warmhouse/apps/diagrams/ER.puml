@@ -1,140 +1,184 @@
 @startuml
-' Настройки стиля
-skinparam linetype ortho
 hide circle
-skinparam class {
-    BackgroundColor White
-    ArrowColor Black
-    BorderColor Black
+skinparam linetype ortho
+
+' ====== USERS / TOPOLOGY ======
+entity "users" as users {
+  *id : uuid
+  --
+  email : text <<unique>>
+  password_hash : text
+  name : text
+  created_at : timestamptz
 }
 
-' --- 1. CORE DOMAIN (USER & TOPOLOGY) ---
-package "Core: User & Topology" {
-
-    entity "User" as user {
-        *id : uuid <<PK>>
-        --
-        email : varchar
-        password_hash : varchar
-        created_at : timestamp
-    }
-
-    entity "Home" as home {
-        *id : uuid <<PK>>
-        --
-        *owner_id : uuid <<FK>>
-        name : varchar
-        timezone : varchar
-    }
-
-    entity "Room" as room {
-        *id : uuid <<PK>>
-        --
-        *home_id : uuid <<FK>>
-        name : varchar (Ex: "Living Room")
-    }
-
+entity "homes" as homes {
+  *id : uuid
+  --
+  owner_user_id : uuid <<FK>>
+  name : text
+  timezone : text
+  created_at : timestamptz
 }
 
-' --- 2. CORE & CONNECT DOMAIN (DEVICES) ---
-package "Core & Connect: Devices" {
-
-    entity "Device" as device {
-        *id : uuid <<PK>>
-        --
-        *room_id : uuid <<FK>> (Nullable)
-        name : varchar (Ex: "Table Lamp")
-        type : varchar (Ex: "light", "sensor")
-        created_at : timestamp
-    }
-
-    ' Это "Паспорт" устройства. Технические данные для Connect Layer.
-    ' Храним в JSONB, т.к. у Zigbee свои настройки, у WiFi свои.
-    entity "Device_Passport" as passport {
-        *device_id : uuid <<PK, FK>>
-        --
-        driver_type : varchar (Ex: "zigbee", "tuya", "mqtt")
-        connectivity_config : jsonb
-        note: "{ 'ip': '192.168.1.5', 'token': 'abc', 'zigbee_addr': '0x123' }"
-    }
-
-    ' Это "Тень" устройства. Текущее состояние для UI.
-    entity "Device_Shadow" as shadow {
-        *device_id : uuid <<PK, FK>>
-        --
-        state : jsonb
-        note: "{ 'on': true, 'bri': 255, 'temp': 24.5 }"
-        last_seen : timestamp
-        is_online : boolean
-    }
-
-    ' Список возможностей (чтобы UI знал, рисовать кнопку или ползунок)
-    entity "Device_Capabilities" as capabilities {
-        *device_id : uuid <<PK, FK>>
-        --
-        features : jsonb
-        note: "['switch', 'brightness', 'color_temp']"
-    }
-
+entity "home_members" as home_members {
+  *home_id : uuid <<FK>>
+  *user_id : uuid <<FK>>
+  --
+  role : text  ' owner/admin/member
+  created_at : timestamptz
 }
 
-' --- 3. AUTOMATION DOMAIN ---
-package "Automation" {
-
-    entity "Scenario" as scenario {
-        *id : uuid <<PK>>
-        --
-        *home_id : uuid <<FK>>
-        name : varchar
-        is_active : boolean
-        cron_expression : varchar (Nullable)
-    }
-
-    ' Условие и Действие часто проще хранить как JSON структуру,
-    ' чтобы не делать сложные Join-ы для движка правил
-    entity "Rule_Block" as rule {
-        *id : uuid <<PK>>
-        --
-        *scenario_id : uuid <<FK>>
-        block_type : varchar (Ex: "trigger", "condition", "action")
-        config : jsonb
-        note: "{ 'type': 'device_state', 'dev_id': '...', 'op': '>', 'val': 25 }"
-    }
-
+entity "rooms" as rooms {
+  *id : uuid
+  --
+  home_id : uuid <<FK>>
+  name : text
+  floor : int
+  created_at : timestamptz
 }
 
-' --- 4. TELEMETRY DOMAIN (TimescaleDB) ---
-package "Telemetry" {
+users ||--o{ homes : owns
+users ||--o{ home_members
+homes  ||--o{ home_members
+homes  ||--o{ rooms
 
-    entity "Device_Metric" as metric {
-        *time : timestamp <<PK>>
-        *device_id : uuid <<PK, FK>>
-        --
-        metric_name : varchar (Ex: "temperature", "power")
-        value_num : double
-        value_str : varchar
-    }
-    note bottom of metric: Hypertable (TimescaleDB).\nPartitioned by time.
-
+' ====== DEVICES / SENSORS ======
+entity "device_types" as device_types {
+  *id : uuid
+  --
+  code : text <<unique>>  ' e.g. temp_sensor, relay
+  name : text
+  capabilities_json : jsonb
 }
 
-' --- ОТНОШЕНИЯ (RELATIONSHIPS) ---
+entity "devices" as devices {
+  *id : uuid
+  --
+  home_id : uuid <<FK>>
+  room_id : uuid <<FK, nullable>>
+  type_id : uuid <<FK>>
+  name : text
+  external_id : text  ' id in Zigbee/WiFi ecosystem
+  protocol : text     ' zigbee/wifi/http/...
+  status : text       ' active/inactive
+  created_at : timestamptz
+}
 
-' Topology hierarchy
-user ||..o{ home : "owns"
-home ||..o{ room : "contains"
-room |o..o{ device : "contains"
+entity "device_state_history" as device_state_history {
+  *id : uuid
+  --
+  device_id : uuid <<FK>>
+  ts : timestamptz
+  state_json : jsonb
+}
 
-' Device composition (One-to-One relations)
-device ||..|| passport : "has tech specs"
-device ||..|| shadow : "has current state"
-device ||..|| capabilities : "has features"
+entity "sensor_readings" as sensor_readings {
+  *id : uuid
+  --
+  device_id : uuid <<FK>>  ' sensor device
+  ts : timestamptz
+  value : numeric
+  unit : text
+  status : text
+}
 
-' Automation
-home ||..o{ scenario : "has scripts"
-scenario ||..|{ rule : "defined by"
+device_types ||--o{ devices
+homes ||--o{ devices
+rooms ||--o{ devices
+devices ||--o{ device_state_history
+devices ||--o{ sensor_readings
 
-' Telemetry
-device ||..o{ metric : "generates history"
+' ====== AUTOMATION ======
+entity "automation_rules" as automation_rules {
+  *id : uuid
+  --
+  home_id : uuid <<FK>>
+  name : text
+  enabled : bool
+  created_by_user_id : uuid <<FK>>
+  created_at : timestamptz
+}
+
+entity "automation_triggers" as automation_triggers {
+  *id : uuid
+  --
+  rule_id : uuid <<FK>>
+  type : text  ' sensor_event | cron
+  device_id : uuid <<FK, nullable>>  ' for sensor_event
+  event_type : text <<nullable>>     ' e.g. state_changed
+  cron_expr : text <<nullable>>      ' for cron
+}
+
+entity "automation_conditions" as automation_conditions {
+  *id : uuid
+  --
+  rule_id : uuid <<FK>>
+  expr : text  ' e.g. "value > 30 AND status = 'active'"
+}
+
+entity "automation_actions" as automation_actions {
+  *id : uuid
+  --
+  rule_id : uuid <<FK>>
+  type : text  ' device_command | notify
+  target_device_id : uuid <<FK, nullable>>
+  command_json : jsonb <<nullable>>
+  notify_template : text <<nullable>>
+  notify_text : text <<nullable>>
+  severity : text <<nullable>>
+}
+
+homes ||--o{ automation_rules
+users ||--o{ automation_rules : creates
+automation_rules ||--o{ automation_triggers
+automation_rules ||--o{ automation_conditions
+automation_rules ||--o{ automation_actions
+devices ||--o{ automation_triggers : listens
+devices ||--o{ automation_actions : targets
+
+' ====== NOTIFICATIONS / TELEGRAM LINKING ======
+entity "notifications" as notifications {
+  *id : uuid
+  --
+  user_id : uuid <<FK>>
+  rule_id : uuid <<FK, nullable>>
+  severity : text
+  text : text
+  status : text  ' queued/sent/failed
+  created_at : timestamptz
+  sent_at : timestamptz <<nullable>>
+}
+
+entity "user_notification_channels" as user_notification_channels {
+  *id : uuid
+  --
+  user_id : uuid <<FK>>
+  type : text  ' telegram/email/push
+  enabled : bool
+  address : text <<nullable>> ' email/device token etc
+  created_at : timestamptz
+}
+
+entity "telegram_link_tokens" as telegram_link_tokens {
+  *token : text
+  --
+  user_id : uuid <<FK>>
+  expires_at : timestamptz
+  used_at : timestamptz <<nullable>>
+}
+
+entity "user_telegram_links" as user_telegram_links {
+  *user_id : uuid <<FK>>
+  --
+  chat_id : text <<unique>>
+  linked_at : timestamptz
+}
+
+users ||--o{ notifications
+automation_rules ||--o{ notifications
+users ||--o{ user_notification_channels
+users ||--o{ telegram_link_tokens
+users ||--|| user_telegram_links
 
 @enduml

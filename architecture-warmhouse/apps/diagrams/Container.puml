@@ -21,7 +21,11 @@ System_Boundary(smart_home, "Smart Home System") {
     Container(broker, "Message Broker", "RabbitMQ / MQTT", "Связующее звено")
 }
 
+
+System_Ext(telegram_api, "Telegram API", "Cloud", "Внешний мессенджер")
 System_Ext(devices, "Hardware", "Датчики и устройства")
+
+Rel(telegram_api, notification_service, "Взаимодействие с внешним мессенджером")
 
 Rel(user, web_app, "Взаимодействие с системой")
 Rel(web_app, core_service, "Взаимодействие frontend с backend")
@@ -30,12 +34,13 @@ Rel(web_app, core_service, "Взаимодействие frontend с backend")
 Rel(core_service, db_core, "RW")
 Rel(automation_service, db_core,"RW")
 Rel(core_service, broker, "Pub: Команды управления устройствами")
-Rel(broker, core_service, "Sub: События от датчиков")
+Rel(broker, core_service, "Sub: События от датчиков, события привязки аккаунта")
 Rel(broker, connect_layer, "Sub: Команды управления устройствами")
 Rel(connect_layer, broker, "Pub: События от датчиков")
 
 Rel(automation_service, core_service, "Выполнение автоматических сценариев")
 Rel(core_service, automation_service, "Настройка автоматических сценариев")
+
 
 Rel(broker, notification_service, "Sub: События уведомлений")
 Rel(broker, automation_service, "Sub: События от датчиков")

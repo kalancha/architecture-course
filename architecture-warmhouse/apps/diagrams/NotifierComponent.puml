@@ -24,12 +24,11 @@ Container_Boundary(notifier, "Notifier Service") {
 
     ' --- АДАПТЕРЫ ---
     Component(tg_client, "Telegram Client", "HTTP Client", "Обёртка над Telegram Bot API")
-    Component(event_pub, "Event Publisher", "MQTT Producer", "Отправляет события (например, user_linked)")
 
 }
 
 ' --- ФЛОУ ОТПРАВКИ (SENDING) ---
-Rel(broker, mqtt_listener, "1. Команда: {user_id, msg}")
+Rel(broker, mqtt_listener, "1. Sub: топик уведомлений")
 Rel(mqtt_listener, dispatcher, "Передает задачу")
 Rel(dispatcher, user_repo, "2. Запрашивает ChatID")
 Rel(user_repo, db_core, "SQL Select")
@@ -37,9 +36,8 @@ Rel(dispatcher, tg_client, "3. Отдает готовое сообщение")
 Rel(tg_client, telegram_api, "POST /sendMessage")
 
 ' --- ФЛОУ ПРИВЯЗКИ (PAIRING) ---
-Rel(telegram_api, webhook_server, "A. Юзер нажал /start XXXXX")
+Rel(telegram_api, webhook_server, "Юзер нажал /start")
 Rel(webhook_server, auth_linker, "Передает токен")
-Rel(auth_linker, event_pub, "Формирует событие")
-Rel(event_pub, broker, "B. Pub: sys/telegram/linked")
+Rel(auth_linker, broker, "Pub: привязка аккаунта")
 
 @enduml
