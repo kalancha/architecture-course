@@ -3,41 +3,41 @@
 
 title C4 Component Diagram - Notifier Service
 
-' Внешние зависимости
-Container(broker, "Broker", "RabbitMQ", "Получение задач")
-ContainerDb(db_core, "Core DB", "PostgreSQL", "Чтение настроек пользователей (ChatID)")
+Container(core_service, "Core Service", "Go / Node.js", "API Gateway, проксирует запросы")
+Container(broker, "Broker", "RabbitMQ + MQTT plugin", "Получение задач")
+ContainerDb(db, "DB Notifier Schema", "PostgreSQL", "notifications, user_notification_channels,\ntelegram_link_tokens, user_telegram_links")
 System_Ext(telegram_api, "Telegram API", "Cloud", "Внешний мессенджер")
 
 Container_Boundary(notifier, "Notifier Service") {
 
-    ' --- ВХОДЯЩИЕ ИНТЕРФЕЙСЫ ---
+    Component(api_handler, "Internal API", "HTTP/gRPC", "Эндпоинты для управления каналами уведомлений")
+
     Component(mqtt_listener, "MQTT Consumer", "Go Channel", "Слушает топик sys/notify/dispatch")
     Component(webhook_server, "Webhook Server", "HTTP Handler", "Принимает входящие хуки от Telegram (команда /start)")
 
-    ' --- ЛОГИКА ---
+    Component(channel_manager, "Channel Manager", "Service", "CRUD каналов уведомлений, управление привязками (Telegram, Email, Push)")
+
     Component(dispatcher, "Dispatcher Logic", "Service", "Определяет тип уведомления (Info/Alarm) и провайдер (TG/Push)")
 
-    Component(auth_linker, "Auth Linker", "Logic", "Парсит токен из /start и формирует событие привязки")
+    Component(auth_linker, "Auth Linker", "Logic", "Валидирует токен из /start, привязывает аккаунт через Channel Manager")
 
-    ' --- РАБОТА С ДАННЫМИ ---
-    Component(user_repo, "User Settings Repo", "SQL Driver", "SELECT telegram_id FROM users WHERE id = ...")
-
-    ' --- АДАПТЕРЫ ---
     Component(tg_client, "Telegram Client", "HTTP Client", "Обёртка над Telegram Bot API")
-
 }
 
-' --- ФЛОУ ОТПРАВКИ (SENDING) ---
-Rel(broker, mqtt_listener, "1. Sub: топик уведомлений")
+Rel(broker, mqtt_listener, "Sub: топик уведомлений")
 Rel(mqtt_listener, dispatcher, "Передает задачу")
-Rel(dispatcher, user_repo, "2. Запрашивает ChatID")
-Rel(user_repo, db_core, "SQL Select")
-Rel(dispatcher, tg_client, "3. Отдает готовое сообщение")
+Rel(dispatcher, channel_manager, "Получение канала доставки для пользователя")
+Rel(dispatcher, tg_client, "Отдает готовое сообщение")
+Rel(dispatcher, db, "Write: notifications (лог доставки)")
 Rel(tg_client, telegram_api, "POST /sendMessage")
 
-' --- ФЛОУ ПРИВЯЗКИ (PAIRING) ---
 Rel(telegram_api, webhook_server, "Юзер нажал /start")
 Rel(webhook_server, auth_linker, "Передает токен")
-Rel(auth_linker, broker, "Pub: привязка аккаунта")
+Rel(auth_linker, channel_manager, "Валидация токена, привязка аккаунта")
+
+Rel(channel_manager, db, "RW")
+
+Rel(core_service, api_handler, "Proxy: управление каналами уведомлений")
+Rel(api_handler, channel_manager, "CRUD каналов, создание токена привязки")
 
 @enduml

@@ -4,7 +4,7 @@
 title Component Diagram - Automation Service
 
 Container(broker, "MQTT Broker", "Infrastructure", "Шина")
-ContainerDb(db, "PostgreSQL", "DB", "Правила автоматизации")
+ContainerDb(db, "PostgreSQL", "DB Automation Schema", "Правила автоматизации")
 
 Container_Boundary(automation, "Automation Service") {
     Component(rule_engine, "Rule Engine", "Logic Core", "Проверяет условия выполнения автоматизаций и уведомлений")

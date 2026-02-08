@@ -16,9 +16,15 @@ System_Boundary(smart_home, "Smart Home System") {
     Container(connect_layer, "Connect Service", "IoT Adapter", "Драйверы и работа с железом")
 
     Container(notification_service, "Notification Service", "Go / Node.js", "Сервис уведомлений")
-    ContainerDb(db_core, "DataBase", "PostreSQL", "Пользователи, дома, комнаты, мета данные устройств")
 
-    Container(broker, "Message Broker", "RabbitMQ / MQTT", "Связующее звено")
+    Container_Boundary(postgres_cluster, "PostgreSQL Cluster") {
+        ContainerDb(db_core, "Core Schema", "PostgreSQL Schema", "users, homes, rooms, devices, device_meta")
+        ContainerDb(db_automation, "Automation Schema", "PostgreSQL Schema", "automation_rules, triggers, conditions, actions")
+        ContainerDb(db_notifier, "Notifier Schema", "PostgreSQL Schema", "notifications, user_notification_channels, telegram_links")
+        ContainerDb(db_connect, "Connect Schema", "PostgreSQL Schema", "device_types, device_passports")
+    }
+
+    Container(broker, "Message Broker", "RabbitMQ + MQTT plugin", "Связующее звено")
 }
 
 
@@ -28,24 +34,23 @@ System_Ext(devices, "Hardware", "Датчики и устройства")
 Rel(telegram_api, notification_service, "Взаимодействие с внешним мессенджером")
 
 Rel(user, web_app, "Взаимодействие с системой")
-Rel(web_app, core_service, "Взаимодействие frontend с backend")
+Rel(web_app, core_service, "REST, WebSocket")
 
-' Core interactions
-Rel(core_service, db_core, "RW")
-Rel(automation_service, db_core,"RW")
 Rel(core_service, broker, "Pub: Команды управления устройствами")
-Rel(broker, core_service, "Sub: События от датчиков, события привязки аккаунта")
+Rel(broker, core_service, "Sub: События от датчиков")
+Rel(core_service, notification_service, "Internal API: управление каналами уведомлений")
+Rel(core_service, connect_layer, "Internal API: каталог устройств, паспорта")
 Rel(broker, connect_layer, "Sub: Команды управления устройствами")
 Rel(connect_layer, broker, "Pub: События от датчиков")
 
-Rel(automation_service, core_service, "Выполнение автоматических сценариев")
-Rel(core_service, automation_service, "Настройка автоматических сценариев")
-
+Rel(core_service, db_core, "RW")
+Rel(automation_service, db_automation,"RW")
+Rel(notification_service, db_notifier, "RW")
+Rel(connect_layer, db_connect, "RW")
 
 Rel(broker, notification_service, "Sub: События уведомлений")
 Rel(broker, automation_service, "Sub: События от датчиков")
-Rel(automation_service, broker, "Pub: События уведомлений")
-Rel(notification_service, db_core, "RW")
+Rel(automation_service, broker, "Pub: События уведомлений, команды управления устройствами")
 Rel(connect_layer, devices, "IoT взаимодействие с железом")
 
 @enduml

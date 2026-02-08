@@ -1,0 +1,304 @@
+openapi: 3.0.3
+info:
+  title: Warmhouse Notifier Service Internal API
+  description: |
+    Внутренний API Notifier Service системы умного дома Warmhouse.
+
+    Аутентификация: внутренний вызов, userId передаётся явно в path.
+    JWT-авторизация выполняется на уровне Core Service.
+  version: 1.0.0
+
+servers:
+  - url: http://notifier-service:8081
+    description: Internal service (docker-compose / k8s)
+
+tags:
+  - name: Notifications
+    description: Журнал уведомлений пользователя
+  - name: Channels
+    description: CRUD каналов доставки уведомлений
+  - name: Telegram
+    description: Привязка и управление Telegram-аккаунтом
+
+paths:
+  /api/v1/users/{userId}/notifications:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Notifications]
+      summary: Список уведомлений пользователя
+      description: Возвращает журнал доставки из notifier_schema.notifications.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, sent, failed]
+          description: Фильтр по статусу доставки
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Список уведомлений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+
+  /api/v1/users/{userId}/channels:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Channels]
+      summary: Каналы уведомлений пользователя
+      description: Возвращает список каналов из notifier_schema.user_notification_channels.
+      responses:
+        '200':
+          description: Список каналов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationChannel'
+    post:
+      tags: [Channels]
+      summary: Добавить канал уведомлений
+      description: Создаёт запись в notifier_schema.user_notification_channels.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationChannelRequest'
+      responses:
+        '201':
+          description: Канал добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationChannel'
+        '409':
+          description: Канал этого типа уже существует
+
+  /api/v1/users/{userId}/channels/{channelId}:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+      - $ref: '#/components/parameters/channelId'
+    get:
+      tags: [Channels]
+      summary: Получить канал по ID
+      responses:
+        '200':
+          description: Данные канала
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationChannel'
+        '404':
+          description: Канал не найден
+    put:
+      tags: [Channels]
+      summary: Обновить канал уведомлений
+      description: Обновляет настройки канала (enabled, address).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationChannelRequest'
+      responses:
+        '200':
+          description: Канал обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationChannel'
+        '404':
+          description: Канал не найден
+    delete:
+      tags: [Channels]
+      summary: Удалить канал уведомлений
+      responses:
+        '204':
+          description: Канал удалён
+        '404':
+          description: Канал не найден
+
+  /api/v1/users/{userId}/telegram/link-token:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    post:
+      tags: [Telegram]
+      summary: Создать токен привязки Telegram
+      description: |
+        Создаёт одноразовый токен в notifier_schema.telegram_link_tokens.
+        Возвращает ссылку вида https://t.me/warmhouse_bot?start={token}.
+        Пользователь переходит по ссылке и нажимает /start.
+        Webhook от Telegram обрабатывается Auth Linker → Channel Manager,
+        привязка сохраняется в notifier_schema.user_telegram_links.
+      responses:
+        '201':
+          description: Токен создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLinkToken'
+
+  /api/v1/users/{userId}/telegram:
+    parameters:
+      - $ref: '#/components/parameters/userId'
+    get:
+      tags: [Telegram]
+      summary: Статус привязки Telegram
+      description: Возвращает данные из notifier_schema.user_telegram_links.
+      responses:
+        '200':
+          description: Данные привязки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLink'
+    delete:
+      tags: [Telegram]
+      summary: Отвязать Telegram
+      description: |
+        Удаляет запись из notifier_schema.user_telegram_links
+        и деактивирует канал telegram в user_notification_channels.
+      responses:
+        '204':
+          description: Telegram отвязан
+        '404':
+          description: Привязка не найдена
+
+components:
+  parameters:
+    userId:
+      name: userId
+      in: path
+      required: true
+      description: UUID пользователя (передаётся Core Service после JWT-авторизации)
+      schema:
+        type: string
+        format: uuid
+    channelId:
+      name: channelId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        ruleId:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID правила автоматизации (logical ref → automation_schema)
+        channel:
+          type: string
+          enum: [telegram, email, push]
+        severity:
+          type: string
+          enum: [info, warning, alarm]
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    NotificationChannel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [telegram, email, push]
+        enabled:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+          description: Email, device token и т.д. (для telegram заполняется автоматически при привязке)
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateNotificationChannelRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [telegram, email, push]
+        enabled:
+          type: boolean
+          default: true
+        address:
+          type: string
+          nullable: true
+          description: Для email/push — адрес доставки. Для telegram — не требуется (заполняется при привязке).
+
+    UpdateNotificationChannelRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+
+    TelegramLinkToken:
+      type: object
+      properties:
+        token:
+          type: string
+        botLink:
+          type: string
+          description: Полная ссылка для привязки
+          example: https://t.me/warmhouse_bot?start=abc123token
+        expiresAt:
+          type: string
+          format: date-time
+
+    TelegramLink:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        chatId:
+          type: string
+          nullable: true
+        linkedAt:
+          type: string
+          format: date-time
+          nullable: true

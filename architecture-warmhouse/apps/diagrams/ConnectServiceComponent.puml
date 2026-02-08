@@ -5,7 +5,7 @@ title Component Diagram - Connect Service
 
 
 Container(broker, "MQTT Broker", "Infrastructure", "Шина")
-ContainerDb(db, "PostgreSQL", "DB", "Для чтения конфигов драйверов (optional)")
+ContainerDb(db, "PostgreSQL", "DB Device Schema", "Получение информации об паспорте устройств")
 System_Ext(hardware, "Physical Devices", "Датчики и устройства")
 
 Container_Boundary(connect, "Connect Service") {
@@ -18,7 +18,6 @@ Container_Boundary(connect, "Connect Service") {
 
 }
 
-' Flow: Initialization
 Rel(driver_manager, db, "Информация о драйверах и устройствах", "SQL")
 
 Rel(broker, mqtt_adapter, "Sub: Команды управления устройствами")

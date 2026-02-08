@@ -1,79 +1,152 @@
 @startuml
-skinparam classAttributeIconSize 0
-skinparam linetype ortho
+skinparam componentStyle uml2
+title Code Level Diagram - Connection Service
 
-title Class Diagram - Connect Layer (Driver Architecture)
-
-package "Core Logic" {
-
-    class ConnectManager {
-        - drivers: Map<string, IDriver>
-        - mqttAdapter: MqttAdapter
-        + LoadConfig(configs: List<Passport>)
-        + OnCommandReceived(deviceId, cmd)
-        + PollAll()
-    }
-
+package "MQTT Layer" {
     class MqttAdapter {
-        + SendEvent(deviceId, state)
-        + SubscribeToCommands()
+        - client: MqttClient
+        - router: TopicRouter
+        - serializer: MessageSerializer
+        + subscribeToCommands()
+        + publishEvent(event: DeviceState)
+        + handleCommand(topic, payload)
     }
 
+    class TopicRouter {
+        + routeCommand(topic): deviceId
+        + buildEventTopic(deviceId): string
+    }
+
+    class MessageSerializer {
+        + deserializeCommand(payload): DeviceCommand
+        + serializeState(state): string
+    }
+
+    class MqttClient {
+        + connect()
+        + subscribe(topic)
+        + publish(topic, message)
+    }
 }
 
-package "Driver Abstraction" {
-
-    interface IDriver {
-        + Connect(): error
-        + Disconnect()
-        + SetState(state: json): error
-        + Ping(): boolean
+package "Driver Manager" {
+    class DriverManager {
+        - drivers: Map<DriverType, IDeviceDriver>
+        - registry: DriverRegistry
+        - repository: IDeviceRepository
+        + loadDrivers()
+        + executeCommand(command: DeviceCommand): CommandResult
+        + getDriver(deviceId): IDeviceDriver
     }
 
-    abstract class BaseDriver implements IDriver {
-        # config: DevicePassport
-        # lastSeen: timestamp
-        # LogError(msg)
+    class DriverRegistry {
+        - availableDrivers: List<DriverInfo>
+        + registerDriver(driver: IDeviceDriver)
+        + getDriver(type: DriverType): IDeviceDriver
     }
 
+    interface IDeviceDriver {
+        + connect(config: DriverConfig)
+        + executeCommand(command: DeviceCommand): CommandResult
+        + getState(deviceId): DeviceState
+        + disconnect()
+    }
 }
 
-package "Protocol Implementations" {
-
-    class ZigbeeDriver extends BaseDriver {
-        - serialPort: string
-        - zigbeeAddress: string
-        + SetState(state)
-        ' Реализует отправку байтов в COM-порт
+package "Driver Implementations" {
+    class ZigbeeDriver {
+        - client: ZigbeeClient
+        - devices: Map<deviceId, Device>
+        + connect(config)
+        + executeCommand(command): CommandResult
+        + getState(deviceId): DeviceState
+        - handleZigbeeMessage(msg)
     }
 
-    class HttpDriver extends BaseDriver {
-        - ipAddress: string
-        - token: string
-        + SetState(state)
-        ' Реализует HTTP POST запрос
+    class WiFiHttpDriver {
+        - httpClient: HttpClient
+        - devices: Map<deviceId, Device>
+        + connect(config)
+        + executeCommand(command): CommandResult
+        + getState(deviceId): DeviceState
     }
 
-    class TuyaDriver extends BaseDriver {
-        - deviceKey: string
-        - protocolVer: string
-        + SetState(state)
-        ' Реализует шифрованный TCP протокол
+    class ZigbeeClient {
+        - coordinator: ZigbeeCoordinator
+        + sendCommand(deviceAddr, command)
+        + readAttribute(deviceAddr, attr)
     }
 
-    class DriverFactory {
-        + CreateDriver(type: string, config: Passport): IDriver
+    class HttpClient {
+        + get(url): Response
+        + post(url, body): Response
     }
-
 }
 
-' Relations
-ConnectManager o-- IDriver : manages >
-ConnectManager --> MqttAdapter : uses
-ConnectManager ..> DriverFactory : uses to create
+package "Data Models" {
+    class Device {
+        + id: string
+        + name: string
+        + type: DeviceType
+        + driverType: DriverType
+        + config: Map<string, any>
+    }
 
-DriverFactory ..> ZigbeeDriver : creates
-DriverFactory ..> HttpDriver : creates
-DriverFactory ..> TuyaDriver : creates
+    class DeviceCommand {
+        + deviceId: string
+        + action: string
+        + parameters: Map<string, any>
+        + timestamp: DateTime
+    }
+
+    class DeviceState {
+        + deviceId: string
+        + state: Map<string, any>
+        + timestamp: DateTime
+    }
+
+    class CommandResult {
+        + success: boolean
+        + newState: DeviceState
+        + error: string
+    }
+}
+
+package "Repository" {
+    interface IDeviceRepository {
+        + getDevice(id): Device
+        + getDevicesByType(type): List<Device>
+        + saveDevice(device): void
+    }
+
+    class DeviceRepository {
+        - db: Database
+        + getDevice(id): Device
+        + getDevicesByType(type): List<Device>
+        + saveDevice(device): void
+    }
+}
+
+' Relationships
+MqttAdapter --> DriverManager : delegates commands
+MqttAdapter --> TopicRouter : uses
+MqttAdapter --> MessageSerializer : uses
+MqttAdapter --> MqttClient : uses
+
+DriverManager --> DriverRegistry : uses
+DriverManager --> IDeviceRepository : uses
+DriverManager --> IDeviceDriver : manages
+
+IDeviceDriver <|.. ZigbeeDriver : implements
+IDeviceDriver <|.. WiFiHttpDriver : implements
+
+ZigbeeDriver --> ZigbeeClient : uses
+WiFiHttpDriver --> HttpClient : uses
+
+DriverManager ..> Device : uses
+DriverManager ..> DeviceCommand : uses
+DriverManager ..> CommandResult : returns
+
+IDeviceRepository <|.. DeviceRepository : implements
 
 @enduml

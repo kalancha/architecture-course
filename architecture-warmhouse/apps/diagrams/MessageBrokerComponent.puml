@@ -2,7 +2,6 @@
 skinparam defaultTextAlignment center
 skinparam componentStyle uml2
 
-' Настройка цветов для разных типов
 skinparam queue {
     BorderColor Black
 }
@@ -21,7 +20,7 @@ skinparam queue<<System>> {
 
 title Broker Component & Data Flow (with Telegram)
 
-package "RabbitMQ / MQTT Broker" {
+package "RabbitMQ + MQTT plugin" {
 
     queue "1. События от датчиков" as events <<Events>>
     note bottom: Топик: home/events/+/state\n(Температура изменилась, движение обнаружено)
@@ -30,41 +29,35 @@ package "RabbitMQ / MQTT Broker" {
     note bottom: Топик: home/commands/+/set\n(Включить, Изменить цвет)
 
     queue "3. Уведомления (Dispatch)" as notify <<Notify>>
-    note bottom: Топик: sys/notify/dispatch\n(Payload: {userID, text})
-
-    queue "4. Системные / Привязка" as sys_link <<System>>
-    note bottom: Топик: sys/telegram/linked\n(Payload: {token, chatID})
+    note bottom: Топик: sys/notify/dispatch\n(Payload: notificationData)
 
 }
 
-' Наши сервисы
 component "Connect Service" as connect
 component "Core Service" as core
 component "Automation Service" as auto
 component "Notifier Service" as notifier
 
-' Внешний мир
 cloud "Telegram API" as tg_cloud
+database "DB Notifier Schema" as db_notifier
 
-' --- 1. ПОТОК ДАННЫХ (ОТ ЖЕЛЕЗА) ---
 connect -down-> events : Pub
-events -up-> core : Sub (UI)
-events -up-> auto : Sub (Logic)
+events -up-> core : Sub
+events -up-> auto : Sub
 
-' --- 2. ПОТОК УПРАВЛЕНИЯ (К ЖЕЛЕЗУ) ---
 core -down-> commands : Pub
 auto -down-> commands : Pub
 commands -up-> connect : Sub
 
-' --- 3. ПОТОК УВЕДОМЛЕНИЙ (К ПОЛЬЗОВАТЕЛЮ) ---
 auto -down-> notify : Pub (Уведомления от автоматизаций и датчиков)
 core -down-> notify : Pub (Системные уведомления)
 notify -up-> notifier : Sub
 notifier -right-> tg_cloud : HTTPS POST\n(Отправка)
 
-' --- 4. ПОТОК ПРИВЯЗКИ (ОТ ПОЛЬЗОВАТЕЛЯ) ---
 tg_cloud -left-> notifier : Webhook\n(/start)
-notifier -up-> sys_link : Pub (Привязка)
-sys_link -up-> core : Sub (Сохранение в БД)
+notifier -down-> db_notifier : Привязка аккаунта\n(сохраняет в свою БД)
+
+core -right-> notifier : Internal API\n(управление каналами)
+core -left-> connect : Internal API\n(каталог устройств, паспорта)
 
 @enduml

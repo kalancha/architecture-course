@@ -2,183 +2,228 @@
 hide circle
 skinparam linetype ortho
 
-' ====== USERS / TOPOLOGY ======
-entity "users" as users {
-  *id : uuid
-  --
-  email : text <<unique>>
-  password_hash : text
-  name : text
-  created_at : timestamptz
+package "core_schema" {
+
+    entity "users" as users {
+      *id : uuid
+      --
+      email : text <<unique>>
+      password_hash : text
+      name : text
+      created_at : timestamptz
+    }
+
+    entity "homes" as homes {
+      *id : uuid
+      --
+      owner_user_id : uuid <<FK>>
+      name : text
+      timezone : text
+      created_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    entity "home_members" as home_members {
+      *home_id : uuid <<FK>>
+      *user_id : uuid <<FK>>
+      --
+      role : text  ' owner/admin/member
+      created_at : timestamptz
+    }
+
+    entity "rooms" as rooms {
+      *id : uuid
+      --
+      home_id : uuid <<FK>>
+      name : text
+      floor : int
+      created_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    entity "devices" as devices {
+      *id : uuid
+      --
+      home_id : uuid <<FK>>
+      room_id : uuid <<FK, nullable>>
+      name : text
+      status : text       ' active/inactive
+      created_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    entity "device_meta" as device_meta {
+      *device_id : uuid <<FK, unique>>
+      --
+      state_json : jsonb       ' current device state (Source of Truth)
+      last_updated : timestamptz
+    }
+
+    entity "device_state_history" as device_state_history {
+      *id : uuid
+      --
+      device_id : uuid <<FK>>
+      timestamp : timestamptz
+      state_json : jsonb
+    }
+
+    ' -- Связи внутри core_schema --
+    users ||--o{ homes : owns
+    users ||--o{ home_members
+    homes  ||--o{ home_members
+    homes  ||--o{ rooms
+
+    homes ||--o{ devices
+    rooms ||--o{ devices
+    devices ||--|| device_meta
+    devices ||--o{ device_state_history
 }
 
-entity "homes" as homes {
-  *id : uuid
-  --
-  owner_user_id : uuid <<FK>>
-  name : text
-  timezone : text
-  created_at : timestamptz
+package "connect_schema" {
+
+    entity "device_types" as device_types {
+      *id : uuid
+      --
+      code : text <<unique>>  ' e.g. temp_sensor, relay
+      name : text
+      capabilities_json : jsonb  ' описание возможностей устройства
+    }
+
+    entity "device_passports" as device_passports {
+      *device_id : uuid          ' logical ref → devices.id
+      --
+      type_id : uuid <<FK>>
+      external_id : text         ' id in Zigbee/WiFi ecosystem
+      protocol : text            ' zigbee/wifi/http
+      config_json : jsonb <<nullable>>  ' driver-specific configuration
+      created_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    device_types ||--o{ device_passports
 }
 
-entity "home_members" as home_members {
-  *home_id : uuid <<FK>>
-  *user_id : uuid <<FK>>
-  --
-  role : text  ' owner/admin/member
-  created_at : timestamptz
+package "automation_schema" {
+
+    entity "automation_rules" as automation_rules {
+      *id : uuid
+      --
+      home_id : uuid             ' logical ref → homes.id
+      name : text
+      description : text <<nullable>>
+      enabled : bool
+      priority : int
+      created_by_user_id : uuid  ' logical ref → users.id
+      created_at : timestamptz
+      updated_at : timestamptz
+    }
+
+    entity "automation_triggers" as automation_triggers {
+      *id : uuid
+      --
+      rule_id : uuid <<FK>>
+      type : text  ' device_event | time_based | manual
+      device_id : uuid <<nullable>>  ' logical ref → devices.id
+      event_type : text <<nullable>>     ' e.g. state_changed
+      cron_expr : text <<nullable>>      ' for time_based
+    }
+
+    entity "automation_conditions" as automation_conditions {
+      *id : uuid
+      --
+      rule_id : uuid <<FK>>
+      type : text  ' device_state | time_range | composite_and | composite_or
+      device_id : uuid <<nullable>>  ' logical ref → devices.id
+      operator : text <<nullable>>       ' gt | lt | eq | neq | between
+      value : text <<nullable>>
+      order_index : int
+    }
+
+    entity "automation_actions" as automation_actions {
+      *id : uuid
+      --
+      rule_id : uuid <<FK>>
+      type : text  ' device_command | notify | delay
+      order_index : int
+      target_device_id : uuid <<nullable>>  ' logical ref → devices.id
+      command_json : jsonb <<nullable>>          ' for device_command
+      notify_template : text <<nullable>>        ' for notify
+      severity : text <<nullable>>               ' for notify
+      delay_ms : int <<nullable>>                ' for delay
+    }
+
+    entity "automation_execution_log" as automation_execution_log {
+      *id : uuid
+      --
+      rule_id : uuid <<FK>>
+      triggered_at : timestamptz
+      trigger_event_json : jsonb <<nullable>>
+      success : bool
+      error_text : text <<nullable>>
+      executed_actions_count : int
+    }
+
+    automation_rules ||--o{ automation_triggers
+    automation_rules ||--o{ automation_conditions
+    automation_rules ||--o{ automation_actions
+    automation_rules ||--o{ automation_execution_log
 }
 
-entity "rooms" as rooms {
-  *id : uuid
-  --
-  home_id : uuid <<FK>>
-  name : text
-  floor : int
-  created_at : timestamptz
+package "notifier_schema" {
+
+    entity "notifications" as notifications {
+      *id : uuid
+      --
+      user_id : uuid          ' logical ref → users.id
+      rule_id : uuid <<nullable>>  ' logical ref → automation_rules.id
+      channel : text       ' telegram/email/push
+      severity : text
+      title : text
+      body : text
+      status : text  ' queued/sent/failed
+      created_at : timestamptz
+      sent_at : timestamptz <<nullable>>
+    }
+
+    entity "user_notification_channels" as user_notification_channels {
+      *id : uuid
+      --
+      user_id : uuid          ' logical ref → users.id
+      type : text  ' telegram/email/push
+      enabled : bool
+      address : text <<nullable>>  ' email/device token etc
+      created_at : timestamptz
+    }
+
+    entity "telegram_link_tokens" as telegram_link_tokens {
+      *token : text
+      --
+      user_id : uuid          ' logical ref → users.id
+      expires_at : timestamptz
+      used_at : timestamptz <<nullable>>
+    }
+
+    entity "user_telegram_links" as user_telegram_links {
+      *user_id : uuid          ' logical ref → users.id
+      --
+      chat_id : text <<unique>>
+      linked_at : timestamptz
+    }
 }
 
-users ||--o{ homes : owns
-users ||--o{ home_members
-homes  ||--o{ home_members
-homes  ||--o{ rooms
+devices ..o| device_passports : "device_id (logical)"
 
-' ====== DEVICES / SENSORS ======
-entity "device_types" as device_types {
-  *id : uuid
-  --
-  code : text <<unique>>  ' e.g. temp_sensor, relay
-  name : text
-  capabilities_json : jsonb
-}
+homes ..o{ automation_rules : "home_id (logical)"
+users ..o{ automation_rules : "created_by (logical)"
+devices ..o{ automation_triggers : "device_id (logical)"
+devices ..o{ automation_actions : "target_device_id (logical)"
+devices ..o{ automation_conditions : "device_id (logical)"
 
-entity "devices" as devices {
-  *id : uuid
-  --
-  home_id : uuid <<FK>>
-  room_id : uuid <<FK, nullable>>
-  type_id : uuid <<FK>>
-  name : text
-  external_id : text  ' id in Zigbee/WiFi ecosystem
-  protocol : text     ' zigbee/wifi/http/...
-  status : text       ' active/inactive
-  created_at : timestamptz
-}
+users ..o{ notifications : "user_id (logical)"
+users ..o{ user_notification_channels : "user_id (logical)"
+users ..o{ telegram_link_tokens : "user_id (logical)"
+users ..o| user_telegram_links : "user_id (logical)"
 
-entity "device_state_history" as device_state_history {
-  *id : uuid
-  --
-  device_id : uuid <<FK>>
-  ts : timestamptz
-  state_json : jsonb
-}
-
-entity "sensor_readings" as sensor_readings {
-  *id : uuid
-  --
-  device_id : uuid <<FK>>  ' sensor device
-  ts : timestamptz
-  value : numeric
-  unit : text
-  status : text
-}
-
-device_types ||--o{ devices
-homes ||--o{ devices
-rooms ||--o{ devices
-devices ||--o{ device_state_history
-devices ||--o{ sensor_readings
-
-' ====== AUTOMATION ======
-entity "automation_rules" as automation_rules {
-  *id : uuid
-  --
-  home_id : uuid <<FK>>
-  name : text
-  enabled : bool
-  created_by_user_id : uuid <<FK>>
-  created_at : timestamptz
-}
-
-entity "automation_triggers" as automation_triggers {
-  *id : uuid
-  --
-  rule_id : uuid <<FK>>
-  type : text  ' sensor_event | cron
-  device_id : uuid <<FK, nullable>>  ' for sensor_event
-  event_type : text <<nullable>>     ' e.g. state_changed
-  cron_expr : text <<nullable>>      ' for cron
-}
-
-entity "automation_conditions" as automation_conditions {
-  *id : uuid
-  --
-  rule_id : uuid <<FK>>
-  expr : text  ' e.g. "value > 30 AND status = 'active'"
-}
-
-entity "automation_actions" as automation_actions {
-  *id : uuid
-  --
-  rule_id : uuid <<FK>>
-  type : text  ' device_command | notify
-  target_device_id : uuid <<FK, nullable>>
-  command_json : jsonb <<nullable>>
-  notify_template : text <<nullable>>
-  notify_text : text <<nullable>>
-  severity : text <<nullable>>
-}
-
-homes ||--o{ automation_rules
-users ||--o{ automation_rules : creates
-automation_rules ||--o{ automation_triggers
-automation_rules ||--o{ automation_conditions
-automation_rules ||--o{ automation_actions
-devices ||--o{ automation_triggers : listens
-devices ||--o{ automation_actions : targets
-
-' ====== NOTIFICATIONS / TELEGRAM LINKING ======
-entity "notifications" as notifications {
-  *id : uuid
-  --
-  user_id : uuid <<FK>>
-  rule_id : uuid <<FK, nullable>>
-  severity : text
-  text : text
-  status : text  ' queued/sent/failed
-  created_at : timestamptz
-  sent_at : timestamptz <<nullable>>
-}
-
-entity "user_notification_channels" as user_notification_channels {
-  *id : uuid
-  --
-  user_id : uuid <<FK>>
-  type : text  ' telegram/email/push
-  enabled : bool
-  address : text <<nullable>> ' email/device token etc
-  created_at : timestamptz
-}
-
-entity "telegram_link_tokens" as telegram_link_tokens {
-  *token : text
-  --
-  user_id : uuid <<FK>>
-  expires_at : timestamptz
-  used_at : timestamptz <<nullable>>
-}
-
-entity "user_telegram_links" as user_telegram_links {
-  *user_id : uuid <<FK>>
-  --
-  chat_id : text <<unique>>
-  linked_at : timestamptz
-}
-
-users ||--o{ notifications
-automation_rules ||--o{ notifications
-users ||--o{ user_notification_channels
-users ||--o{ telegram_link_tokens
-users ||--|| user_telegram_links
+automation_rules ..o{ notifications : "rule_id (logical)"
 
 @enduml
