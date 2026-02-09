@@ -140,9 +140,6 @@ paths:
       description: |
         Создаёт одноразовый токен в notifier_schema.telegram_link_tokens.
         Возвращает ссылку вида https://t.me/warmhouse_bot?start={token}.
-        Пользователь переходит по ссылке и нажимает /start.
-        Webhook от Telegram обрабатывается Auth Linker → Channel Manager,
-        привязка сохраняется в notifier_schema.user_telegram_links.
       responses:
         '201':
           description: Токен создан
@@ -183,7 +180,7 @@ components:
       name: userId
       in: path
       required: true
-      description: UUID пользователя (передаётся Core Service после JWT-авторизации)
+      description: UUID пользователя
       schema:
         type: string
         format: uuid
@@ -209,7 +206,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: ID правила автоматизации (logical ref → automation_schema)
+          description: ID правила автоматизации
         channel:
           type: string
           enum: [telegram, email, push]
