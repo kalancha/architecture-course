@@ -1,6 +1,11 @@
 import Fastify from 'fastify';
+import { registerHealthRoutes } from './handlers/health';
+import { registerTemperatureRoutes } from './handlers/temperature';
 
 const fastify = Fastify({ logger: true });
+
+registerHealthRoutes(fastify);
+registerTemperatureRoutes(fastify);
 
 const start = async () => {
   try {
@@ -25,15 +30,6 @@ process.on('SIGINT', async () => {
   fastify.log.info('SIGINT signal received: closing HTTP server');
   await fastify.close();
   process.exit(0);
-});
-
-fastify.get('/health', (_, reply) => {
-  reply.send({ status: 'allgood' });
-});
-
-fastify.get('/temperature', (request, reply) => {
-  const temperature = Math.round((Math.random() / 2) * 100 - 25);
-  reply.send({ temperature });
 });
 
 start();
