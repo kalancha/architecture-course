@@ -1,0 +1,42 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - Core Service (Management & UI Backend)
+
+Container(web_app, "Web UI", "Frontend", "Клиентское приложение")
+Container(broker, "MQTT Broker", "Infrastructure", "Шина событий")
+Container(notification_service, "Notifier Service", "Go / Node.js", "Сервис уведомлений")
+Container(connect_service, "Connect Service", "IoT Adapter", "Драйверы и работа с железом")
+ContainerDb(db, "PostgreSQL", "DB Core Schema", "Хранение пользователей, топологии и состояния устройств")
+
+Container_Boundary(core, "Core Service") {
+    Component(api_handler, "API Router", "HTTP/REST", "Роутинг запросов (Gin/Express)")
+    Component(auth_middleware, "Auth Middleware", "JWT", "Проверка токенов и прав доступа")
+
+    Component(user_manager, "User Manager Controller", "Module", "Логика управления данными пользователя: информация, настройки")
+    Component(device_meta, "Device Meta Controller", "Module", "Хранение и поддержка текущего state устройств")
+    Component(device_management, "Device Management Controller", "Module", "Привязка устройств к дому/комнате")
+    Component(notification_proxy, "Notification Proxy", "Module", "Проксирует запросы управления каналами уведомлений в Notifier")
+
+    Component(mqtt_client, "MQTT Adapter", "Async Client", "Слушает обновления от датчиков, Публикует команды")
+
+}
+
+Rel(web_app, api_handler, "REST API")
+Rel(api_handler, auth_middleware, "Использует")
+Rel(auth_middleware, user_manager, "Proxy")
+Rel(auth_middleware, device_meta, "Proxy")
+Rel(auth_middleware, device_management, "Proxy")
+Rel(auth_middleware, notification_proxy, "Proxy")
+Rel(auth_middleware, connect_service, "Proxy")
+Rel(device_management, mqtt_client, "Управление устройствами")
+Rel(device_management, db, "Привязка устройства к дому/комнате")
+Rel(mqtt_client, device_meta, "Обновление состояния устройства")
+Rel(broker, mqtt_client, "Sub: События от датчиков")
+Rel(mqtt_client, broker, "Pub: Команды управления устройствами")
+
+Rel(user_manager, db, "Данные пользователя")
+Rel(device_meta, db, "Мета данные устройства")
+Rel(notification_proxy, notification_service, "Internal API: каналы уведомлений")
+
+@enduml

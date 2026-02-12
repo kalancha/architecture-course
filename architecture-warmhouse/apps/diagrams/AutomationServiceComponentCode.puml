@@ -1,0 +1,330 @@
+@startuml
+skinparam componentStyle uml2
+title Code Level Diagram - Automation Service
+
+package "MQTT Layer" {
+    class MqttEventListener {
+        - client: MqttClient
+        - eventQueue: Queue<DeviceEvent>
+        + connect()
+        + subscribeToEvents()
+        + onEventReceived(topic, payload)
+        - handleDeviceEvent(event: DeviceEvent)
+    }
+
+    class MqttCommandPublisher {
+        - client: MqttClient
+        + publishCommand(deviceId, command)
+    }
+
+    class MqttNotificationPublisher {
+        - client: MqttClient
+        + publishNotification(userId, message)
+    }
+
+    class MqttClient {
+        + connect()
+        + subscribe(topic)
+        + publish(topic, message)
+    }
+
+    note right of MqttEventListener
+        Подписывается на топики:
+        - home/events/+/state
+        (События от датчиков)
+    end note
+
+    note right of MqttCommandPublisher
+        Публикует в топики:
+        - home/commands/{deviceId}/set
+        (Команды устройствам)
+    end note
+
+    note right of MqttNotificationPublisher
+        Публикует в топики:
+        - sys/notify/dispatch
+        (Уведомления пользователям)
+    end note
+}
+
+package "Rule Engine Core" {
+    class RuleEngine {
+        - ruleLoader: RuleLoader
+        - ruleExecutor: RuleExecutor
+        - scheduler: CronScheduler
+        - rules: Map<ruleId, Rule>
+        + initialize()
+        + onDeviceEvent(event: DeviceEvent)
+        + evaluateRulesForEvent(event)
+        - findMatchingRules(event): List<Rule>
+    }
+
+    class RuleLoader {
+        - repository: IRuleRepository
+        - conditionFactory: ConditionFactory
+        - actionFactory: ActionFactory
+        + loadAllRules(): List<Rule>
+        + loadRule(ruleId): Rule
+        + reloadRules()
+    }
+
+    class RuleExecutor {
+        - conditionEvaluator: IConditionEvaluator
+        - actionExecutor: ActionExecutor
+        + executeRule(rule: Rule, context: ExecutionContext): boolean
+        - evaluateConditions(rule): boolean
+        - executeActions(rule)
+    }
+}
+
+package "Condition System" {
+    interface IConditionEvaluator {
+        + evaluate(condition: Condition, context: ExecutionContext): boolean
+    }
+
+    class ConditionEvaluator {
+        - deviceMetaRepository: IDeviceMetaRepository
+        + evaluate(condition, context): boolean
+        - evaluateDeviceCondition(condition): boolean
+        - evaluateTimeCondition(condition): boolean
+        - evaluateComposite(condition): boolean
+    }
+
+    class ConditionFactory {
+        + createCondition(config: ConditionConfig): Condition
+    }
+
+    enum ConditionType {
+        DEVICE_STATE
+        TIME_RANGE
+        COMPOSITE_AND
+        COMPOSITE_OR
+    }
+}
+
+package "Action System" {
+    interface IAction {
+        + execute(context: ExecutionContext): ActionResult
+    }
+
+    class ActionExecutor {
+        - commandPublisher: MqttCommandPublisher
+        - notificationPublisher: MqttNotificationPublisher
+        + executeActions(actions: List<IAction>, context)
+        - retryOnFailure(action)
+    }
+
+    class DeviceCommandAction {
+        - deviceId: string
+        - command: string
+        - parameters: Map
+        + execute(context): ActionResult
+    }
+
+    class NotificationAction {
+        - userId: string
+        - messageTemplate: string
+        + execute(context): ActionResult
+    }
+
+    class DelayAction {
+        - delayMs: number
+        + execute(context): ActionResult
+    }
+
+    class ActionFactory {
+        + createAction(config: ActionConfig): IAction
+    }
+}
+
+package "Scheduler" {
+    class CronScheduler {
+        - jobs: Map<jobId, ScheduledJob>
+        - ruleEngine: RuleEngine
+        + initialize()
+        + scheduleRule(rule: Rule)
+        + unscheduleRule(ruleId)
+        + start()
+        + stop()
+        - onJobTriggered(job: ScheduledJob)
+    }
+
+    class ScheduledJob {
+        + jobId: string
+        + ruleId: string
+        + cronExpression: string
+        + nextRunTime: DateTime
+        + isActive: boolean
+        + execute()
+    }
+
+    class TimeBasedTrigger {
+        + type: TriggerType
+        + cronExpression: string
+        + scheduledTime: DateTime
+    }
+}
+
+package "Data Models" {
+    class Rule {
+        + id: string
+        + name: string
+        + description: string
+        + userId: string
+        + isEnabled: boolean
+        + trigger: Trigger
+        + conditions: List<Condition>
+        + actions: List<IAction>
+        + priority: number
+        + createdAt: DateTime
+    }
+
+    class Trigger {
+        + type: TriggerType
+        + deviceId: string
+        + eventType: string
+        + cronExpression: string
+    }
+
+    class Condition {
+        + id: string
+        + type: ConditionType
+        + deviceId: string
+        + operator: ComparisonOperator
+        + value: any
+        + logicOperator: LogicOperator
+    }
+
+    class ExecutionContext {
+        + triggeredBy: DeviceEvent
+        + currentStates: Map<deviceId, DeviceState>
+        + timestamp: DateTime
+        + userId: string
+    }
+
+    class DeviceEvent {
+        + deviceId: string
+        + eventType: string
+        + state: Map<string, any>
+        + timestamp: DateTime
+    }
+
+    class DeviceState {
+        + deviceId: string
+        + state: Map<string, any>
+        + lastUpdated: DateTime
+    }
+
+    class ActionResult {
+        + success: boolean
+        + error: string
+        + executedAt: DateTime
+    }
+
+    enum TriggerType {
+        DEVICE_EVENT
+        TIME_BASED
+        MANUAL
+    }
+}
+
+package "Repository" {
+    interface IRuleRepository {
+        + getAllRules(): List<Rule>
+        + getRuleById(id): Rule
+        + getRulesByUser(userId): List<Rule>
+        + saveRule(rule): void
+        + deleteRule(id): void
+    }
+
+    class RuleRepository {
+        - db: Database
+        + getAllRules(): List<Rule>
+        + getRuleById(id): Rule
+        + getRulesByUser(userId): List<Rule>
+        + saveRule(rule): void
+        + deleteRule(id): void
+    }
+
+    interface IDeviceMetaRepository {
+        + getDeviceState(deviceId): DeviceState
+        + getDeviceStates(deviceIds[]): Map<deviceId, DeviceState>
+        + getAllDeviceStates(): Map<deviceId, DeviceState>
+    }
+
+    class DeviceMetaRepository {
+        - db: Database
+        + getDeviceState(deviceId): DeviceState
+        + getDeviceStates(deviceIds[]): Map
+        + getAllDeviceStates(): Map
+    }
+
+    note right of IDeviceMetaRepository
+        Читает Device Meta из Core Service БД
+        Таблица: device_meta
+        Содержит текущее состояние устройств
+        Source of Truth = PostgreSQL
+    end note
+
+    note right of IRuleRepository
+        Правила создаются через:
+        Web UI → Core Service → PostgreSQL
+        Automation Service только читает
+    end note
+}
+
+' Relationships - MQTT Layer
+MqttEventListener --> MqttClient : uses
+MqttCommandPublisher --> MqttClient : uses
+MqttNotificationPublisher --> MqttClient : uses
+
+MqttEventListener --> RuleEngine : triggers
+MqttEventListener ..> DeviceEvent : creates
+
+' Relationships - Rule Engine Core
+RuleEngine --> RuleLoader : uses
+RuleEngine --> RuleExecutor : uses
+RuleEngine --> CronScheduler : uses
+RuleEngine ..> Rule : manages
+
+RuleLoader --> IRuleRepository : loads from
+RuleLoader --> ConditionFactory : uses
+RuleLoader --> ActionFactory : uses
+RuleLoader ..> Rule : creates
+
+RuleExecutor --> IConditionEvaluator : uses
+RuleExecutor --> ActionExecutor : uses
+RuleExecutor ..> ExecutionContext : creates
+
+' Relationships - Condition System
+IConditionEvaluator <|.. ConditionEvaluator : implements
+ConditionEvaluator --> IDeviceMetaRepository : reads from
+ConditionEvaluator ..> Condition : evaluates
+ConditionFactory ..> Condition : creates
+
+' Relationships - Action System
+IAction <|.. DeviceCommandAction : implements
+IAction <|.. NotificationAction : implements
+IAction <|.. DelayAction : implements
+
+ActionExecutor --> MqttCommandPublisher : uses
+ActionExecutor --> MqttNotificationPublisher : uses
+ActionExecutor --> IAction : executes
+ActionFactory ..> IAction : creates
+
+' Relationships - Scheduler
+CronScheduler --> RuleEngine : triggers rules
+CronScheduler --> ScheduledJob : manages
+ScheduledJob ..> TimeBasedTrigger : uses
+
+' Relationships - Repository
+IRuleRepository <|.. RuleRepository : implements
+IDeviceMetaRepository <|.. DeviceMetaRepository : implements
+
+' Relationships - Models
+Rule --> Trigger : has
+Rule --> Condition : has
+Rule --> IAction : has
+RuleExecutor ..> ActionResult : returns
+
+@enduml

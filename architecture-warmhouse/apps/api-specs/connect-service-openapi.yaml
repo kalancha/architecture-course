@@ -1,0 +1,194 @@
+openapi: 3.0.3
+info:
+  title: Warmhouse Connect Service Internal API
+  description: |
+    Внутренний API Connect Service системы умного дома Warmhouse.
+  version: 1.0.0
+
+servers:
+  - url: http://connect-service:8082
+    description: Internal service (docker-compose / k8s)
+
+tags:
+  - name: Device Types
+    description: Каталог поддерживаемого оборудования (предзаполняется администратором)
+  - name: Device Passports
+    description: Паспорта привязанных устройств (type, external_id, protocol, driver config)
+
+paths:
+  # ==================== DEVICE TYPES (CATALOG) ====================
+  /api/v1/device-types:
+    get:
+      tags: [Device Types]
+      summary: Список поддерживаемых типов устройств
+      description: |
+        Возвращает каталог оборудования из connect_schema.device_types.
+        Пользователь выбирает тип при привязке нового устройства.
+      responses:
+        '200':
+          description: Каталог типов устройств
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceType'
+
+  /api/v1/device-types/{typeId}:
+    parameters:
+      - $ref: '#/components/parameters/typeId'
+    get:
+      tags: [Device Types]
+      summary: Получить тип устройства по ID
+      responses:
+        '200':
+          description: Данные типа устройства
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceType'
+        '404':
+          description: Тип устройства не найден
+
+  # ==================== DEVICE PASSPORTS ====================
+  /api/v1/devices/{deviceId}/passport:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+    post:
+      tags: [Device Passports]
+      summary: Создать паспорт устройства
+      description: |
+        Вызывается при привязке нового устройства.
+        1. Валидирует typeId (существует в каталоге)
+        2. Определяет protocol и config на основе типа устройства
+        3. Сохраняет паспорт в connect_schema.device_passports
+        4. Активирует соответствующий драйвер для external_id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDevicePassportRequest'
+      responses:
+        '201':
+          description: Паспорт создан, драйвер активирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePassport'
+        '404':
+          description: Тип устройства не найден в каталоге
+        '409':
+          description: Устройство с таким externalId уже зарегистрировано
+    get:
+      tags: [Device Passports]
+      summary: Получить паспорт устройства
+      description: Возвращает паспортные данные из connect_schema.device_passports.
+      responses:
+        '200':
+          description: Паспорт устройства
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevicePassport'
+        '404':
+          description: Паспорт не найден
+    delete:
+      tags: [Device Passports]
+      summary: Удалить паспорт устройства
+      description: |
+        Вызывается Core Service при отвязке устройства.
+        Connect Service удаляет паспорт и деактивирует драйвер для этого external_id.
+      responses:
+        '204':
+          description: Паспорт удалён, драйвер деактивирован
+        '404':
+          description: Паспорт не найден
+
+components:
+  parameters:
+    typeId:
+      name: typeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    deviceId:
+      name: deviceId
+      in: path
+      required: true
+      description: UUID устройства (из core_schema.devices)
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    DeviceType:
+      type: object
+      description: Тип устройства из каталога поддерживаемого оборудования
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: Уникальный код типа
+          example: xiaomi_lywsd03
+        name:
+          type: string
+          description: Человекочитаемое название
+          example: Xiaomi Temperature & Humidity Sensor
+        protocol:
+          type: string
+          enum: [zigbee, wifi, http]
+          description: Протокол подключения
+        capabilities:
+          type: object
+          description: Описание возможностей устройства
+          example:
+            measures: [temperature, humidity]
+            controllable: false
+            reportingInterval: 60
+
+    DevicePassport:
+      type: object
+      description: Паспорт привязанного устройства
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+          description: ID устройства (logical ref → core_schema.devices.id)
+        typeId:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: Идентификатор в экосистеме Zigbee/WiFi
+        protocol:
+          type: string
+          enum: [zigbee, wifi, http]
+          description: Определяется автоматически на основе типа устройства
+        config:
+          type: object
+          nullable: true
+          description: Конфигурация драйвера (формируется автоматически на основе типа)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDevicePassportRequest:
+      type: object
+      required: [typeId, externalId]
+      properties:
+        typeId:
+          type: string
+          format: uuid
+          description: ID типа из каталога (device_types)
+        externalId:
+          type: string
+          description: ID устройства в Zigbee/WiFi сети (MAC-адрес, серийный номер и т.д.)
+          example: "0x00158d0001a2b3c4"

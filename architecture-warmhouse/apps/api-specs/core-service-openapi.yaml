@@ -1,0 +1,1425 @@
+openapi: 3.0.3
+info:
+  title: Warmhouse Core Service API
+  description: |
+    REST API для Core Service системы умного дома Warmhouse.
+    Core Service является единой точкой входа (API Gateway) для Web UI.
+    Объединяет: аутентификацию, управление пользователями, топологию (дома/комнаты),
+    метаданные устройств и правила автоматизации.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Регистрация и аутентификация (JWT)
+  - name: Users
+    description: Профиль пользователя
+  - name: Homes
+    description: Управление домами
+  - name: Home Members
+    description: Участники дома (совместный доступ)
+  - name: Rooms
+    description: Комнаты внутри дома
+  - name: Device Types
+    description: |
+      Каталог поддерживаемого оборудования
+  - name: Devices
+    description: Привязка, управление и состояние устройств
+  - name: Automation Rules
+    description: Сценарии автоматизации
+  - name: Notifications
+    description: |
+      Уведомления и каналы доставки.
+  - name: Telegram
+    description: |
+      Привязка Telegram-аккаунта.
+
+paths:
+  # ==================== AUTH ====================
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Регистрация нового пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '409':
+          description: Email уже занят
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Аутентификация пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверные учётные данные
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: Получить профиль текущего пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    put:
+      tags: [Users]
+      summary: Обновить профиль
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /api/v1/homes:
+    get:
+      tags: [Homes]
+      summary: Список домов пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список домов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Home'
+    post:
+      tags: [Homes]
+      summary: Создать новый дом
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHomeRequest'
+      responses:
+        '201':
+          description: Дом создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Home'
+
+  /api/v1/homes/{homeId}:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+    get:
+      tags: [Homes]
+      summary: Получить дом по ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные дома
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Home'
+        '404':
+          description: Дом не найден
+    put:
+      tags: [Homes]
+      summary: Обновить дом
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHomeRequest'
+      responses:
+        '200':
+          description: Дом обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Home'
+    delete:
+      tags: [Homes]
+      summary: Удалить дом
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Дом удалён
+
+  /api/v1/homes/{homeId}/members:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+    get:
+      tags: [Home Members]
+      summary: Список участников дома
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список участников
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HomeMember'
+    post:
+      tags: [Home Members]
+      summary: Добавить участника в дом
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddHomeMemberRequest'
+      responses:
+        '201':
+          description: Участник добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeMember'
+
+  /api/v1/homes/{homeId}/members/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+      - $ref: '#/components/parameters/userId'
+    delete:
+      tags: [Home Members]
+      summary: Удалить участника из дома
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Участник удалён
+
+  /api/v1/homes/{homeId}/rooms:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+    get:
+      tags: [Rooms]
+      summary: Список комнат в доме
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список комнат
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+    post:
+      tags: [Rooms]
+      summary: Создать комнату
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '201':
+          description: Комната создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+
+  /api/v1/homes/{homeId}/rooms/{roomId}:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+      - $ref: '#/components/parameters/roomId'
+    get:
+      tags: [Rooms]
+      summary: Получить комнату по ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные комнаты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+    put:
+      tags: [Rooms]
+      summary: Обновить комнату
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+      responses:
+        '200':
+          description: Комната обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+    delete:
+      tags: [Rooms]
+      summary: Удалить комнату
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Комната удалена
+
+  /api/v1/device-types:
+    get:
+      tags: [Device Types]
+      summary: Каталог поддерживаемого оборудования
+      description:
+        Возвращает список поддерживаемых типов устройств
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список типов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceType'
+
+  /api/v1/homes/{homeId}/devices:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+    get:
+      tags: [Devices]
+      summary: Список устройств в доме
+      description: Возвращает все устройства дома с текущим состоянием из device_meta.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roomId
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Фильтр по комнате
+      responses:
+        '200':
+          description: Список устройств
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceWithState'
+    post:
+      tags: [Devices]
+      summary: Привязать новое устройство к дому
+      description: |
+        Привязывает устройство к дому
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindDeviceRequest'
+      responses:
+        '201':
+          description: Устройство привязано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+        '409':
+          description: Устройство с таким external_id уже привязано
+
+  /api/v1/devices/{deviceId}:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+    get:
+      tags: [Devices]
+      summary: Получить устройство по ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные устройства
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceWithState'
+    put:
+      tags: [Devices]
+      summary: Обновить настройки устройства
+      description: Изменить имя или комнату устройства
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceRequest'
+      responses:
+        '200':
+          description: Устройство обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+    delete:
+      tags: [Devices]
+      summary: Отвязать устройство
+      description: Удаляет привязку устройства из системы.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Устройство отвязано
+
+  /api/v1/devices/{deviceId}/command:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+    post:
+      tags: [Devices]
+      summary: Отправить команду устройству
+      description: |
+        Публикует команду в MQTT-топик home/commands/{deviceId}/set.
+        Connect Service получает команду и передаёт драйверу устройства.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceCommandRequest'
+      responses:
+        '202':
+          description: Команда отправлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommandAccepted'
+
+  /api/v1/devices/{deviceId}/state:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+    get:
+      tags: [Devices]
+      summary: Текущее состояние устройства
+      description: Возвращает актуальное состояние из таблицы device_meta.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Текущее состояние
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceMeta'
+
+  /api/v1/devices/{deviceId}/history:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+    get:
+      tags: [Devices]
+      summary: История состояний устройства
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Начало периода
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Конец периода
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 100
+            maximum: 1000
+      responses:
+        '200':
+          description: История состояний
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceStateHistory'
+
+  /api/v1/homes/{homeId}/rules:
+    parameters:
+      - $ref: '#/components/parameters/homeId'
+    get:
+      tags: [Automation Rules]
+      summary: Список правил автоматизации дома
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список правил
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationRule'
+    post:
+      tags: [Automation Rules]
+      summary: Создать правило автоматизации
+      description: |
+        Создаёт сценарий с триггером, условиями и действиями.
+        Правило загружается в Automation Service при следующей синхронизации.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAutomationRuleRequest'
+      responses:
+        '201':
+          description: Правило создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+
+  /api/v1/rules/{ruleId}:
+    parameters:
+      - $ref: '#/components/parameters/ruleId'
+    get:
+      tags: [Automation Rules]
+      summary: Получить правило по ID
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные правила
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+    put:
+      tags: [Automation Rules]
+      summary: Обновить правило
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAutomationRuleRequest'
+      responses:
+        '200':
+          description: Правило обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutomationRule'
+    delete:
+      tags: [Automation Rules]
+      summary: Удалить правило
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Правило удалено
+
+  /api/v1/rules/{ruleId}/toggle:
+    parameters:
+      - $ref: '#/components/parameters/ruleId'
+    patch:
+      tags: [Automation Rules]
+      summary: Включить/выключить правило
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+      responses:
+        '200':
+          description: Статус изменён
+
+  /api/v1/rules/{ruleId}/logs:
+    parameters:
+      - $ref: '#/components/parameters/ruleId'
+    get:
+      tags: [Automation Rules]
+      summary: Лог выполнения правила
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Лог выполнений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationExecutionLog'
+
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: Список уведомлений пользователя
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, sent, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Список уведомлений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+
+  /api/v1/users/me/notification-channels:
+    get:
+      tags: [Notifications]
+      summary: Каналы уведомлений пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список каналов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationChannel'
+    post:
+      tags: [Notifications]
+      summary: Добавить канал уведомлений
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationChannelRequest'
+      responses:
+        '201':
+          description: Канал добавлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationChannel'
+
+  /api/v1/users/me/notification-channels/{channelId}:
+    parameters:
+      - name: channelId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Notifications]
+      summary: Обновить канал уведомлений
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNotificationChannelRequest'
+      responses:
+        '200':
+          description: Канал обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationChannel'
+    delete:
+      tags: [Notifications]
+      summary: Удалить канал уведомлений
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Канал удалён
+
+  /api/v1/users/me/telegram/link-token:
+    post:
+      tags: [Telegram]
+      summary: Сгенерировать токен для привязки Telegram
+      description: |
+        Проксируется в Notifier Service (Channel Manager).
+        Notifier Service создаёт одноразовый токен в notifier_schema.telegram_link_tokens.
+        Пользователь переходит по ссылке https://t.me/warmhouse_bot?start={token}
+        и нажимает /start. Notifier Service получает webhook, валидирует токен
+        и сохраняет привязку (user_telegram_links) в свою БД.
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Токен создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLinkToken'
+
+  /api/v1/users/me/telegram:
+    get:
+      tags: [Telegram]
+      summary: Статус привязки Telegram
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные привязки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelegramLink'
+    delete:
+      tags: [Telegram]
+      summary: Отвязать Telegram
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Telegram отвязан
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    homeId:
+      name: homeId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    roomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    deviceId:
+      name: deviceId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ruleId:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password, name]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        name:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+
+    Home:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        timezone:
+          type: string
+          example: Europe/Moscow
+        ownerUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateHomeRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        timezone:
+          type: string
+          default: Europe/Moscow
+
+    UpdateHomeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        timezone:
+          type: string
+
+    HomeMember:
+      type: object
+      properties:
+        homeId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, member]
+        userName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AddHomeMemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email приглашаемого пользователя
+        role:
+          type: string
+          enum: [admin, member]
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        homeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        floor:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateRoomRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        floor:
+          type: integer
+          default: 1
+
+    UpdateRoomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        floor:
+          type: integer
+
+    DeviceType:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          example: temp_sensor
+        name:
+          type: string
+          example: Датчик температуры
+        capabilities:
+          type: object
+          description: JSON с описанием возможностей устройства
+          example:
+            measures: [temperature, humidity]
+            controllable: false
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        homeId:
+          type: string
+          format: uuid
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        typeId:
+          type: string
+          format: uuid
+          description: Тип устройства из каталога
+        externalId:
+          type: string
+          description: Идентификатор устройства в экосистеме Zigbee/WiFi
+        protocol:
+          type: string
+          enum: [zigbee, wifi, http]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DeviceWithState:
+      allOf:
+        - $ref: '#/components/schemas/Device'
+        - type: object
+          properties:
+            currentState:
+              $ref: '#/components/schemas/DeviceMeta'
+
+    BindDeviceRequest:
+      type: object
+      required: [name, typeId, externalId]
+      properties:
+        name:
+          type: string
+          example: Датчик в гостиной
+        typeId:
+          type: string
+          format: uuid
+        externalId:
+          type: string
+          description: ID устройства в Zigbee/WiFi сети (MAC-адрес, серийный номер и т.д.)
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateDeviceRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        roomId:
+          type: string
+          format: uuid
+          nullable: true
+
+    DeviceCommandRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          description: Действие (turn_on, turn_off, set_temperature, set_color, ...)
+          example: set_temperature
+        parameters:
+          type: object
+          description: Параметры команды
+          example:
+            value: 23.5
+
+    CommandAccepted:
+      type: object
+      properties:
+        status:
+          type: string
+          example: accepted
+        deviceId:
+          type: string
+          format: uuid
+        action:
+          type: string
+
+    DeviceMeta:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        state:
+          type: object
+          description: Текущее состояние устройства (Source of Truth)
+          example:
+            temperature: 22.5
+            humidity: 45
+            online: true
+        lastUpdated:
+          type: string
+          format: date-time
+
+    DeviceStateHistory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+          format: uuid
+        state:
+          type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    AutomationRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        homeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+        priority:
+          type: integer
+        trigger:
+          $ref: '#/components/schemas/AutomationTrigger'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationAction'
+        createdByUserId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AutomationTrigger:
+      type: object
+      required: [type]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID триггера
+        type:
+          type: string
+          enum: [device_event, time_based, manual]
+        deviceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Для типа device_event
+        eventType:
+          type: string
+          nullable: true
+          description: "Тип события (например: state_changed)"
+        cronExpression:
+          type: string
+          nullable: true
+          description: Для типа time_based (например 0 8 * * *)
+
+    AutomationCondition:
+      type: object
+      required: [type]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID условия
+        type:
+          type: string
+          enum: [device_state, time_range, composite_and, composite_or]
+        deviceId:
+          type: string
+          format: uuid
+          nullable: true
+        operator:
+          type: string
+          enum: [gt, lt, eq, neq, between]
+          nullable: true
+        value:
+          type: string
+          nullable: true
+          description: Значение для сравнения
+        orderIndex:
+          type: integer
+
+    AutomationAction:
+      type: object
+      required: [type, orderIndex]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID действия
+        type:
+          type: string
+          enum: [device_command, notify, delay]
+        orderIndex:
+          type: integer
+        targetDeviceId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Для типа device_command
+        command:
+          type: object
+          nullable: true
+          description: Команда для устройства
+          example:
+            action: turn_on
+            parameters: {}
+        notifyTemplate:
+          type: string
+          nullable: true
+          description: Шаблон уведомления для типа notify
+        severity:
+          type: string
+          enum: [info, warning, alarm]
+          nullable: true
+        delayMs:
+          type: integer
+          nullable: true
+          description: Задержка в мс для типа delay
+
+    CreateAutomationRuleRequest:
+      type: object
+      required: [name, trigger, actions]
+      properties:
+        name:
+          type: string
+          example: Включить отопление при низкой температуре
+        description:
+          type: string
+          nullable: true
+        enabled:
+          type: boolean
+          default: true
+        priority:
+          type: integer
+          default: 0
+        trigger:
+          $ref: '#/components/schemas/AutomationTrigger'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationAction'
+
+    UpdateAutomationRuleRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        priority:
+          type: integer
+        trigger:
+          $ref: '#/components/schemas/AutomationTrigger'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationCondition'
+        actions:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutomationAction'
+
+    AutomationExecutionLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        ruleId:
+          type: string
+          format: uuid
+        triggeredAt:
+          type: string
+          format: date-time
+        triggerEvent:
+          type: object
+          nullable: true
+        success:
+          type: boolean
+        errorText:
+          type: string
+          nullable: true
+        executedActionsCount:
+          type: integer
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        ruleId:
+          type: string
+          format: uuid
+          nullable: true
+        channel:
+          type: string
+          enum: [telegram, email, push]
+        severity:
+          type: string
+          enum: [info, warning, alarm]
+        title:
+          type: string
+        body:
+          type: string
+        status:
+          type: string
+          enum: [queued, sent, failed]
+        createdAt:
+          type: string
+          format: date-time
+        sentAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    NotificationChannel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [telegram, email, push]
+        enabled:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+          description: Email, device token и т.д.
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateNotificationChannelRequest:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [telegram, email, push]
+        enabled:
+          type: boolean
+          default: true
+        address:
+          type: string
+          nullable: true
+
+    UpdateNotificationChannelRequest:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        address:
+          type: string
+          nullable: true
+
+    TelegramLinkToken:
+      type: object
+      properties:
+        token:
+          type: string
+        botLink:
+          type: string
+          description: Полная ссылка для привязки
+          example: https://t.me/warmhouse_bot?start=abc123token
+        expiresAt:
+          type: string
+          format: date-time
+
+    TelegramLink:
+      type: object
+      properties:
+        linked:
+          type: boolean
+        chatId:
+          type: string
+          nullable: true
+        linkedAt:
+          type: string
+          format: date-time
+          nullable: true

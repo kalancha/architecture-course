@@ -1,0 +1,152 @@
+@startuml
+skinparam componentStyle uml2
+title Code Level Diagram - Connection Service
+
+package "MQTT Layer" {
+    class MqttAdapter {
+        - client: MqttClient
+        - router: TopicRouter
+        - serializer: MessageSerializer
+        + subscribeToCommands()
+        + publishEvent(event: DeviceState)
+        + handleCommand(topic, payload)
+    }
+
+    class TopicRouter {
+        + routeCommand(topic): deviceId
+        + buildEventTopic(deviceId): string
+    }
+
+    class MessageSerializer {
+        + deserializeCommand(payload): DeviceCommand
+        + serializeState(state): string
+    }
+
+    class MqttClient {
+        + connect()
+        + subscribe(topic)
+        + publish(topic, message)
+    }
+}
+
+package "Driver Manager" {
+    class DriverManager {
+        - drivers: Map<DriverType, IDeviceDriver>
+        - registry: DriverRegistry
+        - repository: IDeviceRepository
+        + loadDrivers()
+        + executeCommand(command: DeviceCommand): CommandResult
+        + getDriver(deviceId): IDeviceDriver
+    }
+
+    class DriverRegistry {
+        - availableDrivers: List<DriverInfo>
+        + registerDriver(driver: IDeviceDriver)
+        + getDriver(type: DriverType): IDeviceDriver
+    }
+
+    interface IDeviceDriver {
+        + connect(config: DriverConfig)
+        + executeCommand(command: DeviceCommand): CommandResult
+        + getState(deviceId): DeviceState
+        + disconnect()
+    }
+}
+
+package "Driver Implementations" {
+    class ZigbeeDriver {
+        - client: ZigbeeClient
+        - devices: Map<deviceId, Device>
+        + connect(config)
+        + executeCommand(command): CommandResult
+        + getState(deviceId): DeviceState
+        - handleZigbeeMessage(msg)
+    }
+
+    class WiFiHttpDriver {
+        - httpClient: HttpClient
+        - devices: Map<deviceId, Device>
+        + connect(config)
+        + executeCommand(command): CommandResult
+        + getState(deviceId): DeviceState
+    }
+
+    class ZigbeeClient {
+        - coordinator: ZigbeeCoordinator
+        + sendCommand(deviceAddr, command)
+        + readAttribute(deviceAddr, attr)
+    }
+
+    class HttpClient {
+        + get(url): Response
+        + post(url, body): Response
+    }
+}
+
+package "Data Models" {
+    class Device {
+        + id: string
+        + name: string
+        + type: DeviceType
+        + driverType: DriverType
+        + config: Map<string, any>
+    }
+
+    class DeviceCommand {
+        + deviceId: string
+        + action: string
+        + parameters: Map<string, any>
+        + timestamp: DateTime
+    }
+
+    class DeviceState {
+        + deviceId: string
+        + state: Map<string, any>
+        + timestamp: DateTime
+    }
+
+    class CommandResult {
+        + success: boolean
+        + newState: DeviceState
+        + error: string
+    }
+}
+
+package "Repository" {
+    interface IDeviceRepository {
+        + getDevice(id): Device
+        + getDevicesByType(type): List<Device>
+        + saveDevice(device): void
+    }
+
+    class DeviceRepository {
+        - db: Database
+        + getDevice(id): Device
+        + getDevicesByType(type): List<Device>
+        + saveDevice(device): void
+    }
+}
+
+' Relationships
+MqttAdapter --> DriverManager : delegates commands
+MqttAdapter --> TopicRouter : uses
+MqttAdapter --> MessageSerializer : uses
+MqttAdapter --> MqttClient : uses
+
+DriverManager --> DriverRegistry : uses
+DriverManager --> IDeviceRepository : uses
+DriverManager --> IDeviceDriver : manages
+
+IDeviceDriver <|.. ZigbeeDriver : implements
+IDeviceDriver <|.. WiFiHttpDriver : implements
+
+ZigbeeDriver --> ZigbeeClient : uses
+WiFiHttpDriver --> HttpClient : uses
+
+DriverManager ..> Device : uses
+DriverManager ..> DeviceCommand : uses
+DriverManager ..> CommandResult : returns
+
+IDeviceRepository <|.. DeviceRepository : implements
+
+@enduml

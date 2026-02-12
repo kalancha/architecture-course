@@ -1,0 +1,24 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - Automation Service
+
+Container(broker, "MQTT Broker", "Infrastructure", "Шина")
+ContainerDb(db, "PostgreSQL", "DB Automation Schema", "Правила автоматизации")
+
+Container_Boundary(automation, "Automation Service") {
+    Component(rule_engine, "Rule Engine", "Logic Core", "Проверяет условия выполнения автоматизаций и уведомлений")
+
+    Component(scheduler, "Cron Scheduler", "Job Runner", "Генерирует триггеры на временные события")
+}
+
+Rel(broker, rule_engine, "События от датчиков")
+
+Rel(scheduler, rule_engine, "Триггеры времени")
+
+Rel(rule_engine, db, "Выгрузка в память правила автоматизаций и уведомлений")
+Rel(scheduler, db, "Выгрузка в память данных о событиях для cron")
+
+Rel(rule_engine, broker, "Команды управления устройствами и события уведомлений")
+
+@enduml

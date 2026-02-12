@@ -1,0 +1,35 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component Diagram - Connect Service
+
+
+Container(broker, "MQTT Broker", "Infrastructure", "Шина")
+ContainerDb(db, "PostgreSQL", "DB Device Schema", "Получение информации об паспорте устройств")
+System_Ext(hardware, "Physical Devices", "Датчики и устройства")
+
+Container_Boundary(connect, "Connect Service") {
+    Component(driver_manager, "Driver Manager", "Core Logic", "Загружает драйверы, управляет их жизненным циклом")
+
+    Component(mqtt_adapter, "MQTT Adapter", "Messaging", "Преобразует MQTT топики в вызовы драйверов и наоборот")
+
+    Component(driver_zigbee, "Zigbee Driver", "Interface Implementation", "Работает с Zigbee")
+    Component(driver_wifi, "WiFi/HTTP Driver", "Interface Implementation", "Работает с REST API устройств")
+
+}
+
+Rel(driver_manager, db, "Информация о драйверах и устройствах", "SQL")
+
+Rel(broker, mqtt_adapter, "Sub: Команды управления устройствами")
+Rel(mqtt_adapter, driver_manager, "команды управления")
+Rel(driver_manager, driver_zigbee, "Команда управления")
+Rel(driver_manager, driver_wifi, "Команда управления")
+
+Rel(driver_zigbee, hardware, "MQTT/HTTP")
+Rel(driver_wifi, hardware, "MQTT/HTTP")
+
+Rel(driver_zigbee, mqtt_adapter, "Возвращает новое состояние устройства")
+Rel(driver_wifi, mqtt_adapter, "Возвращает новое состояние устройства")
+Rel(mqtt_adapter, broker, "Pub: События от датчиков")
+
+@enduml

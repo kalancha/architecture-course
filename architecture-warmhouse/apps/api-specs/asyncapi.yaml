@@ -1,0 +1,247 @@
+asyncapi: 2.6.0
+info:
+  title: Warmhouse MQTT Event Bus
+  version: 1.0.0
+  description: |
+    Асинхронное взаимодействие между микросервисами системы умного дома Warmhouse
+    через MQTT-брокер.
+
+    Топики:
+    1. home/events/{deviceId}/state — события от датчиков и устройств
+    2. home/commands/{deviceId}/set — команды управления устройствами
+    3. sys/notify/dispatch — задачи на отправку уведомлений
+
+servers:
+  local:
+    url: mqtt://localhost:1883
+    protocol: mqtt
+    description: Локальный MQTT-брокер
+
+defaultContentType: application/json
+
+channels:
+  home/events/{deviceId}/state:
+    description: |
+      События изменения состояния устройств.
+      Connect Service публикует сюда данные, полученные от физических устройств
+      через драйверы (Zigbee, WiFi/HTTP).
+    parameters:
+      deviceId:
+        description: UUID устройства в системе
+        schema:
+          type: string
+          format: uuid
+    publish:
+      operationId: publishDeviceEvent
+      summary: Connect Service публикует событие от устройства
+      message:
+        $ref: '#/components/messages/DeviceStateEvent'
+    subscribe:
+      operationId: subscribeDeviceEvents
+      summary: Core Service и Automation Service получают события
+      message:
+        $ref: '#/components/messages/DeviceStateEvent'
+
+  home/commands/{deviceId}/set:
+    description: |
+      Команды управления устройствами.
+      Core Service публикует команды от пользователя (через Web UI).
+      Automation Service публикует команды от автоматических сценариев.
+      Connect Service подписан и передаёт команды соответствующему драйверу.
+    parameters:
+      deviceId:
+        description: UUID устройства-получателя
+        schema:
+          type: string
+          format: uuid
+    publish:
+      operationId: publishDeviceCommand
+      summary: Core/Automation Service отправляет команду устройству
+      message:
+        $ref: '#/components/messages/DeviceCommand'
+    subscribe:
+      operationId: subscribeDeviceCommands
+      summary: Connect Service получает и исполняет команду
+      message:
+        $ref: '#/components/messages/DeviceCommand'
+
+  sys/notify/dispatch:
+    description: |
+      Задачи на отправку уведомлений пользователям.
+      Automation Service публикует уведомления, сгенерированные правилами.
+      Core Service публикует системные уведомления.
+      Notifier Service подписан, определяет канал доставки и отправляет.
+    publish:
+      operationId: publishNotification
+      summary: Core/Automation Service создаёт задачу на уведомление
+      message:
+        $ref: '#/components/messages/NotificationDispatch'
+    subscribe:
+      operationId: subscribeNotifications
+      summary: Notifier Service получает и обрабатывает уведомление
+      message:
+        $ref: '#/components/messages/NotificationDispatch'
+
+components:
+  messages:
+    DeviceStateEvent:
+      name: DeviceStateEvent
+      title: Событие изменения состояния устройства
+      summary: Датчик или устройство сообщает о новом состоянии
+      contentType: application/json
+      payload:
+        type: object
+        required: [deviceId, eventType, state, timestamp]
+        properties:
+          deviceId:
+            type: string
+            format: uuid
+            description: UUID устройства в системе
+          eventType:
+            type: string
+            description: Тип события
+            enum:
+              - state_changed
+              - online
+              - offline
+              - error
+            example: state_changed
+          state:
+            type: object
+            description: Текущее состояние устройства
+            example:
+              temperature: 22.5
+              humidity: 45
+          previousState:
+            type: object
+            nullable: true
+            description: Предыдущее состояние (для delta-сравнений)
+          timestamp:
+            type: string
+            format: date-time
+      examples:
+        - name: Датчик температуры обновил показания
+          payload:
+            deviceId: "550e8400-e29b-41d4-a716-446655440001"
+            eventType: state_changed
+            state:
+              temperature: 23.1
+              humidity: 42
+            previousState:
+              temperature: 22.5
+              humidity: 45
+            timestamp: "2026-02-06T12:30:00Z"
+        - name: Датчик движения сработал
+          payload:
+            deviceId: "550e8400-e29b-41d4-a716-446655440002"
+            eventType: state_changed
+            state:
+              motion: true
+            timestamp: "2026-02-06T12:31:00Z"
+
+    DeviceCommand:
+      name: DeviceCommand
+      title: Команда управления устройством
+      summary: Команда на включение, выключение или изменение параметров устройства
+      contentType: application/json
+      payload:
+        type: object
+        required: [deviceId, action, timestamp]
+        properties:
+          deviceId:
+            type: string
+            format: uuid
+          action:
+            type: string
+            description: Действие
+            example: set_temperature
+          parameters:
+            type: object
+            description: Параметры команды
+            example:
+              value: 24.0
+          source:
+            type: string
+            enum: [user, automation]
+            description: Источник команды
+          userId:
+            type: string
+            format: uuid
+            nullable: true
+            description: ID пользователя (если source=user)
+          ruleId:
+            type: string
+            format: uuid
+            nullable: true
+            description: ID правила автоматизации (если source=automation)
+          timestamp:
+            type: string
+            format: date-time
+      examples:
+        - name: Пользователь включает обогреватель
+          payload:
+            deviceId: "550e8400-e29b-41d4-a716-446655440010"
+            action: turn_on
+            parameters: {}
+            source: user
+            userId: "550e8400-e29b-41d4-a716-446655440100"
+            timestamp: "2026-02-06T12:35:00Z"
+        - name: Автоматизация задаёт температуру
+          payload:
+            deviceId: "550e8400-e29b-41d4-a716-446655440010"
+            action: set_temperature
+            parameters:
+              value: 23.5
+            source: automation
+            ruleId: "550e8400-e29b-41d4-a716-446655440200"
+            timestamp: "2026-02-06T12:36:00Z"
+
+    NotificationDispatch:
+      name: NotificationDispatch
+      title: Задача на отправку уведомления
+      summary: Notifier Service получает задачу и доставляет уведомление пользователю
+      contentType: application/json
+      payload:
+        type: object
+        required: [userId, title, body, severity, timestamp]
+        properties:
+          userId:
+            type: string
+            format: uuid
+            description: Кому отправить
+          ruleId:
+            type: string
+            format: uuid
+            nullable: true
+            description: ID правила автоматизации (если сгенерировано правилом)
+          title:
+            type: string
+            description: Заголовок уведомления
+            example: Низкая температура в гостиной
+          body:
+            type: string
+            description: Текст уведомления
+            example: "Температура упала до 16C. Обогреватель включён автоматически."
+          severity:
+            type: string
+            enum: [info, warning, alarm]
+            description: Уровень важности
+          channel:
+            type: string
+            enum: [telegram, email, push, auto]
+            default: auto
+            description: Канал доставки (auto = определяется настройками пользователя)
+          timestamp:
+            type: string
+            format: date-time
+            description: Время создания уведомления
+      examples:
+        - name: Уведомление о низкой температуре
+          payload:
+            userId: "550e8400-e29b-41d4-a716-446655440100"
+            ruleId: "550e8400-e29b-41d4-a716-446655440200"
+            title: "Низкая температура в гостиной"
+            body: "Температура упала до 16C. Обогреватель включён автоматически."
+            severity: warning
+            channel: auto
+            timestamp: "2026-02-06T12:36:00Z"
