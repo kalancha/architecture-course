@@ -1,0 +1,72 @@
+@startuml c4_container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Контейнеры — MVP открытия депозитов, Банк «Стандарт»
+
+Person(client, "Клиент", "Авторизованный\nпользователь ИБ")
+Person(cc_operator, "Оператор КЦ")
+Person(bo_deposit, "Менеджер БО депозитов")
+Person(bo_credit, "Менеджер БО кредитов")
+Person(branch_employee, "Сотрудник отделения")
+
+System_Boundary(ib_boundary, "Интернет-банк") {
+    Container(lb, "Load Balancer", "Nginx", "Балансировка между узлами\nИБ в двух ЦОД")
+    Container(ib_web, "IB Web App", "ASP.NET MVC 4.5", "Основной монолит: витрина\nдепозитов, форма заявки,\nкеш ставок")
+    Container(ib_otp, "OTP-модуль", ".NET 4.5, разработка банка", "Генерация и валидация OTP.\nБез изменения ядра подрядчика")
+    ContainerDb(ib_db, "IB Database", "MS SQL", "Сессии, заявки, кеш ставок")
+}
+
+System_Boundary(integration, "Интеграционный слой") {
+    Container(deposit_svc, "Сервис заявок\nна депозиты", "Java Spring Boot, новый", "Принимает заявки из ИБ\nпо REST, публикует в Kafka")
+    Container(kafka, "Apache Kafka", "Message Broker", "Очередь заявок,\nгарантированная доставка")
+}
+
+System_Boundary(abs_boundary, "АБС") {
+    Container(abs_client, "Десктопный клиент АБС", "Delphi", "UI для бэк-офиса\nи фронт-офиса")
+    Container(abs_api_gw, "ABS API Gateway", "Java Spring Boot, новый", "REST-прослойка\nнад PL-SQL процедурами")
+    Container(abs_core, "Ядро АБС", "PL-SQL / Oracle", "Бизнес-логика: счета,\nдепозиты, заявки")
+    Container(abs_rates, "Модуль ставок", "PL-SQL / Oracle, новый", "Хранение и управление\nдепозитными ставками\n(замена Excel)")
+    Container(abs_consumer, "Kafka Consumer", "Java, новый", "Читает заявки из Kafka,\nсоздаёт записи в АБС")
+    ContainerDb(abs_db, "ABS Database", "Oracle", "Счета, клиенты, заявки, ставки")
+    Container(abs_sms, "SMS-модуль", "PL-SQL, существующий", "Отправка уведомлений\nчерез шлюз")
+}
+
+System_Ext(website, "Сайт", "PHP / React.js")
+System_Ext(cc_system, "Система кол-центра", "Java Spring Boot / PostgreSQL")
+System_Ext(sms_gw, "СМС-шлюз", "Телеком-оператор")
+
+Rel(client, lb, "HTTPS/TLS")
+Rel(lb, ib_web, "HTTP")
+
+Rel(ib_web, ib_otp, "Запрос OTP")
+Rel(ib_web, ib_db, "Чтение/запись")
+Rel(ib_otp, sms_gw, "Отправка OTP", "API/TLS")
+
+Rel(ib_web, abs_api_gw, "Получает ставки\n(кешируются в IB DB)", "REST/HTTPS")
+Rel(ib_web, deposit_svc, "Передаёт заявку", "REST/HTTPS")
+
+Rel(deposit_svc, kafka, "Публикует заявку")
+Rel(abs_consumer, kafka, "Читает заявки")
+Rel(abs_consumer, abs_core, "Создаёт запись в АБС", "PL-SQL")
+
+Rel(abs_api_gw, abs_rates, "Вызов PL-SQL процедур")
+Rel(abs_rates, abs_db, "Чтение/запись ставок")
+Rel(abs_core, abs_db, "Чтение/запись")
+Rel(abs_core, abs_sms, "Запрос отправки СМС")
+Rel(abs_sms, sms_gw, "Отправка SMS", "API/TLS")
+
+Rel(bo_deposit, abs_client, "Обработка заявок, ставки")
+Rel(bo_credit, abs_client, "Расчёт базовых ставок,\nанализ кредитного риска")
+Rel(branch_employee, abs_client, "Идентификация, открытие депозита")
+Rel(abs_client, abs_core, "CRUD")
+Rel(abs_client, abs_rates, "Работа со ставками")
+
+Rel(cc_operator, cc_system, "Обработка заявок")
+Rel(cc_system, abs_core, "Передаёт обращение", "REST/HTTPS")
+
+Rel(website, cc_system, "Создаёт заявку", "REST/HTTPS")
+Rel(website, abs_api_gw, "Получает ставки", "REST/HTTPS")
+
+@enduml
