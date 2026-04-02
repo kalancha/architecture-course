@@ -1,0 +1,23 @@
+@startuml c4_context_task4
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Контекст — Передача депозитных ставок в кол-центры
+
+Person(cc_operator, "Оператор КЦ\n(банк)", "Консультирует клиентов\nпо ставкам")
+Person(partner_operator, "Оператор\nпартнёрского КЦ", "Консультирует клиентов\nпо ставкам")
+
+System(cc_system, "Система кол-центра", "Java Spring Boot / React.js\nПлатформа подрядчика")
+System(abs, "АБС", "Oracle / PL-SQL\nИсточник актуальных ставок")
+System(rate_export, "Rate Export Service", "Java Spring Boot, новый\nЭкспорт ставок в файл + SFTP")
+System_Ext(partner_cc, "Система\nпартнёрского КЦ", "Внешняя система,\nполучает файлы по SFTP")
+
+Rel(cc_system, abs, "Ежедневная синхронизация\nактуальных ставок", "REST/HTTPS")
+Rel(cc_operator, cc_system, "Просматривает ставки,\nконсультирует клиентов")
+
+Rel(rate_export, abs, "Запрашивает ставки\nпо расписанию", "REST/HTTPS")
+Rel(rate_export, partner_cc, "Отправляет CSV-файл", "SFTP")
+Rel(partner_operator, partner_cc, "Открывает файл ставок,\nконсультирует клиентов")
+
+@enduml

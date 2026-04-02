@@ -1,0 +1,38 @@
+@startuml c4_context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Контекст системы — MVP открытия депозитов, Банк «Стандарт»
+
+Person(client, "Клиент", "Новый или существующий\nклиент банка")
+Person(cc_operator, "Оператор КЦ", "Сотрудник кол-центра\nбанка «Стандарт»")
+Person(bo_deposit, "Менеджер БО депозитов", "Сотрудник бэк-офиса\nдепозитного направления")
+Person(bo_credit, "Менеджер БО кредитов", "Рассчитывает базовые ставки\nна основе кредитного риска")
+Person(branch_employee, "Сотрудник отделения", "Менеджер фронт-офиса")
+
+System(website, "Сайт", "PHP / React.js\nВитрина депозитов, форма заявки")
+System(internet_bank, "Интернет-банк", "ASP.NET MVC 4.5 / .NET 4.5\nОнлайн-обслуживание клиентов")
+System(cc_system, "Система кол-центра", "Java Spring Boot / React.js / PostgreSQL\nПлатформа подрядчика")
+System(abs, "АБС", "Oracle / PL-SQL / Delphi\nУчёт операций, заявки, ставки")
+
+System_Ext(telecom, "Телеком-оператор\n(СМС-шлюз)", "Отправка СМС")
+
+Rel(client, website, "Просматривает депозиты,\nподаёт заявку", "HTTPS")
+Rel(website, cc_system, "Создаёт заявку на депозит", "REST/HTTPS")
+
+Rel(cc_operator, cc_system, "Обрабатывает заявку,\nфиксирует условия, звонит клиенту")
+Rel(cc_system, abs, "Передаёт обращение", "REST/HTTPS")
+
+Rel(client, internet_bank, "Просматривает депозиты,\nподаёт заявку, подтверждает OTP", "HTTPS")
+Rel(internet_bank, telecom, "Отправляет OTP-код", "API/TLS")
+Rel(internet_bank, abs, "Получает актуальные ставки\n(кешируются локально)", "REST/HTTPS")
+Rel_Back(abs, internet_bank, "Получает заявки\nна депозит асинхронно", "Kafka")
+
+Rel(bo_deposit, abs, "Обрабатывает заявку,\nработает со ставками депозитов")
+Rel(bo_credit, abs, "Рассчитывает базовые ставки,\nанализирует кредитный риск")
+Rel(branch_employee, abs, "Идентификация клиента,\nоткрытие депозита")
+
+Rel(abs, telecom, "СМС-уведомления о ставке\nи открытии депозита", "API/TLS")
+
+@enduml

@@ -1,0 +1,42 @@
+@startuml c4_container_task4
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Контейнеры — Передача депозитных ставок в кол-центры
+
+Person(cc_operator, "Оператор КЦ (банк)")
+Person(partner_operator, "Оператор партнёрского КЦ")
+
+System_Boundary(cc_boundary, "Система кол-центра") {
+    Container(cc_ui, "CC Web UI", "React.js", "Интерфейс оператора,\nновый раздел: просмотр ставок")
+    Container(cc_backend, "CC Backend", "Java Spring Boot", "Бизнес-логика КЦ,\nновый компонент: ScheduledRateSync")
+    ContainerDb(cc_db, "CC Database", "PostgreSQL", "Обращения, заявки,\nкеш ставок")
+}
+
+System_Boundary(export_boundary, "Rate Export Service") {
+    Container(rate_scheduler, "Rate Export Scheduler", "Java Spring Boot, новый", "Ежедневно запрашивает ставки,\nформирует CSV, отправляет по SFTP.\nПри ошибке — повторные попытки")
+}
+
+System_Boundary(abs_boundary, "АБС") {
+    Container(abs_api_gw, "ABS API Gateway", "Java Spring Boot, новый", "REST-прослойка\nнад PL-SQL процедурами")
+    Container(abs_rates, "Модуль ставок", "PL-SQL / Oracle, новый", "Хранение и расчёт\nдепозитных ставок")
+    ContainerDb(abs_db, "ABS Database", "Oracle", "Ставки, счета, клиенты")
+}
+
+System_Ext(partner_cc, "Система партнёрского КЦ", "Принимает файлы по SFTP")
+
+Rel(cc_operator, cc_ui, "Просматривает ставки")
+Rel(cc_ui, cc_backend, "REST API")
+Rel(cc_backend, cc_db, "Читает/записывает ставки в кеш")
+
+Rel(cc_backend, abs_api_gw, "Ежедневная синхронизация", "REST/HTTPS")
+Rel(abs_api_gw, abs_rates, "Вызов PL-SQL процедур")
+Rel(abs_rates, abs_db, "Чтение ставок")
+
+Rel(rate_scheduler, abs_api_gw, "Запрашивает ставки", "REST/HTTPS")
+Rel(rate_scheduler, partner_cc, "Отправляет CSV", "SFTP / SSH-ключ")
+
+Rel(partner_operator, partner_cc, "Открывает файл ставок")
+
+@enduml
