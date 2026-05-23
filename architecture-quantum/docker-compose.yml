@@ -1,0 +1,24 @@
+services:
+  rag-bot:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DEFENSE_LEVEL: all
+      ROUTE_NON_QUESTIONS_DIRECT: "0"
+    volumes:
+      - ./knowledge_base:/app/knowledge_base:ro
+      - ./chroma_db:/app/chroma_db
+    stdin_open: true
+    tty: true
+    command: python -m src.main --defense all
+
+  indexer:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./knowledge_base:/app/knowledge_base:ro
+      - ./chroma_db:/app/chroma_db
+    command: python build_index.py
+

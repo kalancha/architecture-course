@@ -1,0 +1,28 @@
+@startuml
+title QuantumForge RAG Bot Architecture
+
+actor User
+
+rectangle "Docker Compose" {
+  component "rag-bot\nCLI REPL" as Bot
+  component "indexer\nbuild_index.py" as Indexer
+  database "ChromaDB\nchroma_db/" as Chroma
+  folder "knowledge_base/\n51 documents" as KB
+}
+
+cloud "YandexGPT API" as LLM
+component "Sentence-Transformers\nparaphrase-multilingual-MiniLM-L12-v2" as Embeddings
+
+User --> Bot : question
+Bot --> Embeddings : embed query
+Bot --> Chroma : top-k search
+Chroma --> Bot : relevant chunks + metadata
+Bot --> LLM : prompt + context + rules
+LLM --> Bot : grounded answer
+Bot --> User : answer / refusal
+
+Indexer --> KB : read documents
+Indexer --> Embeddings : embed chunks
+Indexer --> Chroma : persist vectors + metadata
+
+@enduml

@@ -1,0 +1,10 @@
+chromadb==1.5.9
+sentence-transformers==3.0.1
+torch==2.2.2
+transformers==4.41.2
+numpy<2
+langchain==0.3.27
+langchain-text-splitters==0.3.11
+python-dotenv==1.2.2
+requests==2.34.2
+urllib3<2
