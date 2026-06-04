@@ -1,0 +1,25 @@
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Virtualenv
+.venv/
+.venv311/
+.venv_test/
+venv/
+
+# ChromaDB
+chroma_db/
+
+# Demo logs
+demo_logs/
