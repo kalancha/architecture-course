@@ -1,0 +1,47 @@
+"""
+GraphQL schema for client-info.
+
+REST equivalents:
+- GET /clients/{id} -> Query.client
+- GET /clients/{id}/documents -> Query.documents or Client.documents
+- GET /clients/{id}/relatives -> Query.relatives or Client.relatives
+"""
+
+scalar Date
+
+schema {
+  query: Query
+}
+
+type Query {
+  client(id: ID!): Client
+
+  documents(clientId: ID!): [Document!]!
+
+  relatives(clientId: ID!): [Relative!]!
+}
+
+type Client {
+  id: ID!
+  name: String!
+  age: Int
+
+  documents: [Document!]!
+
+  relatives: [Relative!]!
+}
+
+type Document {
+  id: ID!
+  type: String!
+  number: String!
+  issueDate: Date
+  expiryDate: Date
+}
+
+type Relative {
+  id: ID!
+  relationType: String!
+  name: String!
+  age: Int
+}
