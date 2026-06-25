@@ -1,0 +1,15 @@
+{
+  "name": "bionicpro-reports-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.12.1",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jose": "^5.9.6"
+  }
+}
