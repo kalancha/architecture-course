@@ -12,7 +12,9 @@ MVP должен закрыть промежуточное состояние и
 
 ## C4 Context
 
-Диаграмма C4 Context находится в файле [c4-context.drawio](c4-context.drawio).
+Исходник диаграммы C4 Context находится в файле [c4-context.drawio](c4-context.drawio). Для preview рядом выгружена PNG-версия:
+
+![C4 Context MVP](c4-context.png)
 
 ## Внутреннее разложение MVP
 
