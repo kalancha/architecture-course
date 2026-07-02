@@ -1,0 +1,85 @@
+<mxfile host="65bd71144e">
+    <diagram id="medikamente-ishikawa" name="Ишикава">
+        <mxGraphModel dx="1268" dy="1263" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Диаграмма Исикавы: риски узких мест при миграции «Медикаменте»" style="text;html=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="30" width="880" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="problem" value="Снижение производительности, доступности и безопасности при переходе от ручного учёта к целевой архитектуре" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffd6d6;strokeColor=#b42318;fontStyle=1;fontSize=14;" parent="1" vertex="1">
+                    <mxGeometry x="870" y="330" width="250" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="main" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=3;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="120" y="375" as="sourcePoint"/>
+                        <mxPoint x="870" y="375" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="infraLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="300" y="375" as="sourcePoint"/>
+                        <mxPoint x="200" y="165" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="infra" value="Инфраструктура&lt;br&gt;- один локальный сервер&lt;br&gt;- файловый режим 1С&lt;br&gt;- общий диск для сканов&lt;br&gt;- нет DR и понятных RPO/RTO" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d9eafd;strokeColor=#2563eb;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="100" width="250" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="dataLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="430" y="375" as="sourcePoint"/>
+                        <mxPoint x="380" y="155" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="data" value="Данные и хранилища&lt;br&gt;- Excel, JPG, PDF без аудита&lt;br&gt;- нет золотого источника&lt;br&gt;- нет тегов PII/MEDICAL&lt;br&gt;- дубли Excel и 1С" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e7f6df;strokeColor=#2f855a;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="330" y="90" width="260" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="integrationLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="590" y="375" as="sourcePoint"/>
+                        <mxPoint x="655" y="165" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="integration" value="Интеграции&lt;br&gt;- ККМ через TCP/IP и OLE&lt;br&gt;- будущий API лаборатории&lt;br&gt;- нет API Gateway&lt;br&gt;- нет версионирования контрактов" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff1c2;strokeColor=#b7791f;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="590" y="100" width="270" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="softwareLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="720" y="375" as="sourcePoint"/>
+                        <mxPoint x="790" y="245" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="software" value="Архитектура ПО&lt;br&gt;- смешение монолита и общих ресурсов&lt;br&gt;- нет выделенных доменов&lt;br&gt;- ручные процессы в критическом пути&lt;br&gt;- прямые связи вместо сервисного слоя" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e8ff;strokeColor=#7e22ce;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="760" y="210" width="300" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="securityLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="300" y="375" as="sourcePoint"/>
+                        <mxPoint x="200" y="595" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="security" value="Безопасность и privacy&lt;br&gt;- нет RBAC/ABAC&lt;br&gt;- нет шифрования at rest/in transit&lt;br&gt;- нет Data Lineage&lt;br&gt;- нет сроков хранения и удаления" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffd6d6;strokeColor=#b42318;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="80" y="540" width="280" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="peopleLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="470" y="375" as="sourcePoint"/>
+                        <mxPoint x="430" y="605" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="people" value="Люди и процессы&lt;br&gt;- маленький IT-отдел&lt;br&gt;- CTO совмещает роль архитектора&lt;br&gt;- коллективные знания не описаны&lt;br&gt;- ручной ввод и двойной учёт" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="550" width="270" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="obsLine" value="" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="640" y="375" as="sourcePoint"/>
+                        <mxPoint x="700" y="605" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="obs" value="Observability и тестирование&lt;br&gt;- нет аудита доступа&lt;br&gt;- нет алертов по нетипичным действиям&lt;br&gt;- нет нагрузочных и регрессионных проверок&lt;br&gt;- нет метрик миграции" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=12;align=left;spacingLeft=8;" parent="1" vertex="1">
+                    <mxGeometry x="650" y="550" width="320" height="120" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
