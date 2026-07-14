@@ -1,0 +1,64 @@
+<mxfile host="65bd71144e">
+    <diagram id="medikamente-c4-context" name="C4 Context MVP">
+        <mxGraphModel dx="824" dy="821" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="C4 Context: целевая система «Медикаменте» MVP" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+                    <mxGeometry x="190" y="30" width="820" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="usersTitle" value="Пользователи и сотрудники" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="100" width="280" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="patient" value="Пациент&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;запись на приём, свои данные&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f4c81;strokeColor=#0b3a61;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="150" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="frontOffice" value="Ресепшен, врач, кассир&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;записи, назначенные пациенты, оплата&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f4c81;strokeColor=#0b3a61;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="250" width="280" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="backOffice" value="Бухгалтерия, аналитик, IT&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;отчётность, ANALYTICS_SAFE, эксплуатация&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f4c81;strokeColor=#0b3a61;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="70" y="360" width="280" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="system" value="Целевая система «Медикаменте» MVP&lt;br&gt;&lt;font style=&quot;font-size: 12px&quot;&gt;портал клиента, портал сотрудников, запись, CRM, документы, платежи, IAM, аудит, теги, защищённая аналитика&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1769aa;strokeColor=#0f4c81;fontColor=#ffffff;fontSize=17;fontStyle=1;spacing=12;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="235" width="340" height="150" as="geometry"/>
+                </mxCell>
+                <mxCell id="externalTitle" value="Внешние системы" style="text;html=1;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="100" width="280" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="lab" value="Лаборатория анализов&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;mTLS, минимальный контракт&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8f8f8f;strokeColor=#666666;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="145" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="onec" value="1С:Бухгалтерия&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;сверка платежей и учёт&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8f8f8f;strokeColor=#666666;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="245" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="kkm" value="ККМ&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;кассовые операции&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8f8f8f;strokeColor=#666666;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="345" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="notify" value="Email/SMS/голосовые уведомления&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;напоминания о приёме&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8f8f8f;strokeColor=#666666;fontColor=#ffffff;fontSize=14;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="850" y="445" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="HTTPS" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="patient" target="system" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2" value="HTTPS" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="frontOffice" target="system" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="контролируемый доступ" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="backOffice" target="system" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="mTLS" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="system" target="lab" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="платежи" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="system" target="onec" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="кассовые операции" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="system" target="kkm" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" value="уведомления" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#333333;fontSize=11;" parent="1" source="system" target="notify" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
