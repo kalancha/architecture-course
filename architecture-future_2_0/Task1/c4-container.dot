@@ -1,0 +1,122 @@
+digraph C4Container {
+  graph [rankdir=LR, bgcolor="white", fontname="Arial", fontsize=20,
+         label="Будущее 2.0 — C4 Container, целевое состояние через год",
+         labelloc=t, pad=0.35, nodesep=0.32, ranksep=0.72, compound=true];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=10,
+        color="#355070", fillcolor="#F5F7FB", margin="0.14,0.09"];
+  edge [fontname="Arial", fontsize=8, color="#4A5568", fontcolor="#2D3748", arrowsize=0.65];
+
+  user [label="Person\nBusiness User / Analyst", fillcolor="#E8F0FE", color="#1A73E8"];
+  clinician [label="Person\nClinician / Clinic Operator", fillcolor="#E8F0FE", color="#1A73E8"];
+  partner [label="External System\nPharma / Equipment Partner", fillcolor="#F3F4F6", color="#4B5563"];
+
+  subgraph cluster_future {
+    label="Software System: Будущее 2.0 (cloud target)";
+    color="#264653";
+    style="rounded";
+
+    iam [label="Container: IAM / SSO / Policy\nRBAC, ABAC, service identities", fillcolor="#FFF4D6", color="#E9C46A"];
+    api [label="Container: API Gateway\nAuth, rate limit, API versions", fillcolor="#F3E8FF", color="#7E22CE"];
+    events [label="Container: Event/API Integration\nEvents, schema registry, contracts", fillcolor="#F3E8FF", color="#7E22CE"];
+    ops [label="Container: Operations Plane\nAudit, monitoring, backup, DR", fillcolor="#FFF4D6", color="#E9C46A"];
+
+    subgraph cluster_medical {
+      label="Protected medical perimeter";
+      color="#C1121F";
+      style="rounded,bold";
+      clinic [label="Container: Clinical Application\nMedical workflows and private API", fillcolor="#FFE4E6", color="#BE123C"];
+      meddb [label="Container: Medical Store\nRecords, histories, images, results", shape=cylinder, fillcolor="#FFE4E6", color="#BE123C"];
+      ai [label="Container: AI Services\nPython medical inference", fillcolor="#FFE4E6", color="#BE123C"];
+      ai_metrics [label="Container: AI Technical Metrics DP\nNo clinical content", fillcolor="#DCFCE7", color="#16A34A"];
+      deny [label="Constraint\nNO medical records / histories /\nresearch results in analytics", shape=note, fillcolor="#FFF1F2", color="#E11D48"];
+      clinic -> meddb [label="reads / writes"];
+      clinic -> ai [dir=both, label="private medical case / result"];
+      ai -> ai_metrics [label="technical telemetry only"];
+      deny -> meddb [style=dashed, arrowhead=none];
+    }
+
+    subgraph cluster_domains {
+      label="Independent business-domain environments";
+      color="#2563EB";
+      style="rounded";
+      fintech [label="Container: Fintech Services\nGo / Java"];
+      findb [label="Container: Fintech OLTP\nAccounts, loans, finance history", shape=cylinder];
+      fint_dp [label="Container: Fintech Data Product Publisher", fillcolor="#DCFCE7", color="#16A34A"];
+      corp [label="Container: Corporate Services\nCustomer, HR, inventory"];
+      corpdb [label="Container: Corporate OLTP", shape=cylinder];
+      corp_dp [label="Container: Corporate Data Product Publisher", fillcolor="#DCFCE7", color="#16A34A"];
+      pdom [label="Container: Partner Domain\nAdapters and domain services"];
+      pdb [label="Container: Partner OLTP", shape=cylinder];
+      p_dp [label="Container: Partner Data Product Publisher", fillcolor="#DCFCE7", color="#16A34A"];
+      fintech -> findb;
+      findb -> fint_dp [label="approved projection"];
+      corp -> corpdb;
+      corpdb -> corp_dp [label="approved projection"];
+      pdom -> pdb;
+      pdb -> p_dp [label="approved projection"];
+    }
+
+    subgraph cluster_data {
+      label="Shared self-service data platform";
+      color="#7E22CE";
+      style="rounded";
+      ingest [label="Container: Airflow / Ingestion / CDC\nOrchestration, schema & quality checks", fillcolor="#F3E8FF", color="#7E22CE"];
+      lake [label="Container: Data Lakehouse\nS3 + Parquet + Apache Iceberg", shape=cylinder, fillcolor="#ECFDF5", color="#047857"];
+      nessie [label="Container: Nessie\nIceberg technical catalog & versions", fillcolor="#F3E8FF", color="#7E22CE"];
+      dremio [label="Container: Dremio\nSQL, curated views, compute", fillcolor="#F3E8FF", color="#7E22CE"];
+      datahub [label="Container: DataHub\nOwners, glossary, discovery, lineage", fillcolor="#F3E8FF", color="#7E22CE"];
+      portal [label="Container: Self-service Portal / BI\nSearch, access, SQL, reports", fillcolor="#DBEAFE", color="#2563EB"];
+      govern [label="Container: Governance Control Plane\nClassification, contracts, policies", fillcolor="#FFF4D6", color="#E9C46A"];
+
+      ingest -> lake [label="writes approved DPs"];
+      ingest -> nessie [label="commits metadata"];
+      dremio -> lake [label="queries"];
+      dremio -> nessie [label="resolves versions"];
+      ingest -> datahub [style=dashed, label="pipeline / quality metadata"];
+      dremio -> datahub [style=dashed, label="usage / lineage"];
+      portal -> datahub [label="discovers"];
+      portal -> dremio [label="queries / builds reports"];
+      govern -> ingest [style=dashed, label="validates"];
+      govern -> dremio [style=dashed, label="enforces policy"];
+    }
+
+    subgraph cluster_legacy {
+      label="Isolated transition boundary";
+      color="#B56576";
+      style="rounded,dashed";
+      pbuilder [label="Legacy Container\nPowerBuilder UI", fillcolor="#FDECEF", color="#B56576"];
+      dwh [label="Legacy Container\nSQL Server 2008 DWH\nlogic frozen", shape=cylinder, fillcolor="#FDECEF", color="#B56576"];
+      esb [label="Legacy Container\nApache Camel bridge\nno new routes", fillcolor="#FDECEF", color="#B56576"];
+      migrate [label="Container: Migration & Reconciliation\nSnapshot, CDC, parallel run, rollback", fillcolor="#FDECEF", color="#B56576"];
+      pbuilder -> dwh;
+      dwh -> migrate [style=dashed, label="snapshot + CDC"];
+      esb -> events [style=dashed, label="temporary bridge"];
+    }
+  }
+
+  user -> portal [label="BS-1 / BS-5: search and reports"];
+  clinician -> clinic [label="BS-3: clinical workflow"];
+  partner -> api [label="BS-4: partner API"];
+  api -> pdom;
+  api -> iam [style=dashed, label="authenticates"];
+  portal -> iam [style=dashed, label="authorizes"];
+
+  fintech -> events [dir=both, label="domain events"];
+  corp -> events [dir=both, label="domain events"];
+  pdom -> events [dir=both, label="domain events"];
+  clinic -> events [dir=both, label="non-medical contracts only"];
+
+  ai_metrics -> ingest [label="technical DP"];
+  fint_dp -> ingest [label="versioned DP"];
+  corp_dp -> ingest [label="versioned DP"];
+  p_dp -> ingest [label="versioned DP"];
+
+  iam -> dremio [style=dashed, label="identity / policy"];
+  iam -> datahub [style=dashed];
+  ops -> clinic [style=dashed];
+  ops -> fintech [style=dashed];
+  ops -> lake [style=dashed];
+  migrate -> findb [style=dashed, label="reconciled migration"];
+  migrate -> corpdb [style=dashed, label="reconciled migration"];
+}
+

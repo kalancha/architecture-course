@@ -1,0 +1,68 @@
+digraph TerraformDeployment {
+  graph [
+    rankdir=LR,
+    bgcolor="white",
+    fontname="Arial",
+    fontsize=18,
+    label="Будущее 2.0 — автоматизация развёртывания IaaS",
+    labelloc=t,
+    pad=0.3,
+    nodesep=0.45,
+    ranksep=0.75
+  ];
+  node [shape=box, style="rounded,filled", fontname="Arial", fontsize=11, color="#355070", fillcolor="#F4F7FB", margin="0.16,0.10"];
+  edge [fontname="Arial", fontsize=9, color="#4A5568", fontcolor="#2D3748", arrowsize=0.7];
+
+  subgraph cluster_manual {
+    label="Подготавливается вручную один раз";
+    color="#B56576";
+    style="rounded,dashed";
+    fillcolor="#FFF7F8";
+
+    account [label="Аккаунт и биллинг\nYandex Cloud", fillcolor="#FDECEF"];
+    folder [label="Изолированный cloud/folder\nдля учебного контура", fillcolor="#FDECEF"];
+    auth [label="Временный YC_TOKEN\nчерез переменную окружения", fillcolor="#FDECEF"];
+    ssh [label="Локальная SSH-пара\nприватный ключ не публикуется", fillcolor="#FDECEF"];
+
+    account -> folder [label="создание"];
+    folder -> auth [label="IAM-права"];
+  }
+
+  subgraph cluster_terraform {
+    label="Управляется Terraform";
+    color="#2A9D8F";
+    style="rounded";
+    fillcolor="#F1FBF9";
+
+    provider [label="Yandex provider\nжелаемое состояние", fillcolor="#DDF5F0"];
+    network [label="VPC Network"];
+    subnet [label="Subnet\n10.20.10.0/24"];
+    sg [label="Security Group\ninternal + optional SSH"];
+    image [label="Ubuntu 24.04 LTS\nimage lookup"];
+    boot [label="Boot Disk\n15 GB network-hdd"];
+    data [label="Data Disk\n20 GB network-hdd"];
+    vm [label="Compute VM\n2 vCPU / 2 GB RAM"];
+    nat [label="Dynamic public IP / NAT\nисходящий доступ"];
+    init [label="cloud-init\nпользователь + SSH key"];
+
+    provider -> network [label="creates"];
+    network -> subnet [label="contains"];
+    network -> sg [label="scopes"];
+    image -> boot [label="initializes"];
+    subnet -> vm [label="connects"];
+    sg -> vm [label="protects"];
+    boot -> vm [label="boots"];
+    data -> vm [label="attaches"];
+    nat -> vm [label="optional"];
+    init -> vm [label="configures"];
+  }
+
+  auth -> provider [label="authenticates", style=dashed];
+  folder -> provider [label="cloud_id / folder_id", style=dashed];
+  ssh -> init [label="public key only", style=dashed];
+
+  outputs [label="Terraform outputs\nIDs, private/public IP, SSH command", fillcolor="#FFF4D6", color="#E9C46A"];
+  vm -> outputs [label="exports"];
+  network -> outputs [label="exports"];
+}
+
