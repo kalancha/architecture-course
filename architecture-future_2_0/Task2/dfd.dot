@@ -1,0 +1,101 @@
+digraph DFD {
+  graph [rankdir=TB, bgcolor="white", fontname="Arial", fontsize=20,
+         label="Будущее 2.0 — DFD Level 1: домены и потоки данных",
+         labelloc=t, pad=0.35, nodesep=0.35, ranksep=0.62, compound=true];
+  node [fontname="Arial", fontsize=9, color="#455A64", fillcolor="white", style="filled", margin="0.13,0.08"];
+  edge [fontname="Arial", fontsize=7.5, color="#546E7A", fontcolor="#37474F", arrowsize=0.6];
+
+  doctor [shape=box, label="E1\nClinicians / Clinic Operators"];
+  hq [shape=box, label="E2\nHead Office"];
+  newfin [shape=box, label="E3\nNew Fintech Service"];
+  pharma [shape=box, label="E4\nPharma Partner"];
+  equip [shape=box, label="E5\nEquipment Manufacturer"];
+  users [shape=box, label="E6\nDomain Business Users"];
+  council [shape=box, label="E7\nFederated Data Council\nOwners + Security + Compliance"];
+
+  subgraph cluster_customer {
+    label="Domain: Customer Profile"; color="#1565C0"; style="rounded";
+    p1 [shape=ellipse, label="P1 Manage\nCustomer Profile", fillcolor="#E3F2FD"];
+    d1 [shape=cylinder, label="D1 Customer\nReference Data", fillcolor="#E3F2FD"];
+    p1 -> d1 [dir=both, label="reference profile"];
+  }
+
+  subgraph cluster_medical {
+    label="PROTECTED MEDICAL PERIMETER — excluded from common analytics";
+    color="#C62828"; penwidth=3; style="rounded,bold";
+    p2 [shape=ellipse, label="P2 Clinical\nProcesses", fillcolor="#FFEBEE", color="#C62828"];
+    d2 [shape=cylinder, label="D2 Medical Store\nRecords, histories, research, images", fillcolor="#FFEBEE", color="#C62828"];
+    p3 [shape=ellipse, label="P3 Medical AI\nProcessing", fillcolor="#FFEBEE", color="#C62828"];
+    d3 [shape=cylinder, label="D3 Models and\nClinical AI Results", fillcolor="#FFEBEE", color="#C62828"];
+    d4 [shape=cylinder, label="D4 AI Technical KPI\nNo clinical content", fillcolor="#E8F5E9", color="#2E7D32"];
+    deny [shape=note, label="No connector from D2/D3\nto Lakehouse or Portal", fillcolor="#FFF8E1", color="#F9A825"];
+    p2 -> d2 [dir=both, label="medical data"];
+    p2 -> p3 [dir=both, label="private medical case / result"];
+    p3 -> d3 [dir=both, label="model / result"];
+    p3 -> d4 [label="availability, latency, errors"];
+    deny -> d2 [style=dashed, arrowhead=none];
+    deny -> d3 [style=dashed, arrowhead=none];
+  }
+
+  subgraph cluster_fin {
+    label="Domain: Fintech"; color="#2E7D32"; style="rounded";
+    p4 [shape=ellipse, label="P4 Fintech\nServices", fillcolor="#E8F5E9"];
+    d5 [shape=cylinder, label="D5 Accounts, Loans,\nFinance History", fillcolor="#E8F5E9"];
+    p4 -> d5 [dir=both, label="financial operations"];
+  }
+
+  subgraph cluster_corp {
+    label="Domain: Corporate Management"; color="#2E7D32"; style="rounded";
+    p5 [shape=ellipse, label="P5 Corporate\nOperations", fillcolor="#E8F5E9"];
+    d6 [shape=cylinder, label="D6 HR, Inventory, Internal Finance,\nClinic Administration", fillcolor="#E8F5E9"];
+    p5 -> d6 [dir=both, label="corporate data"];
+  }
+
+  subgraph cluster_partners {
+    label="Independent partner domains"; color="#2E7D32"; style="rounded";
+    p6 [shape=ellipse, label="P6 Pharma\nIntegration", fillcolor="#E8F5E9"];
+    d7 [shape=cylinder, label="D7 Pharma Contracts\nand Partner Data", fillcolor="#E8F5E9"];
+    p7 [shape=ellipse, label="P7 Equipment\nIntegration", fillcolor="#E8F5E9"];
+    d8 [shape=cylinder, label="D8 Equipment Contracts\nand Operational Data", fillcolor="#E8F5E9"];
+    p6 -> d7 [dir=both, label="versioned contract"];
+    p7 -> d8 [dir=both, label="versioned contract"];
+  }
+
+  subgraph cluster_platform {
+    label="Shared self-service data platform (enabling capability, not a business domain)";
+    color="#5E35B1"; style="rounded";
+    p8 [shape=ellipse, label="P8 Publish Data Products\nSchema, quality, policy checks", fillcolor="#EDE7F6", color="#5E35B1"];
+    d9 [shape=cylinder, label="D9 Lakehouse\nApproved Data Products Only", fillcolor="#EDE7F6", color="#5E35B1"];
+    d10 [shape=cylinder, label="D10 Data Catalog\nOwner, contract, quality, lineage", fillcolor="#EDE7F6", color="#5E35B1"];
+    p9 [shape=ellipse, label="P9 Self-service Portal\nSearch, access, SQL, reports", fillcolor="#EDE7F6", color="#5E35B1"];
+    p8 -> d9 [label="validated data"];
+    p8 -> d10 [label="metadata"];
+    d9 -> p9 [label="authorized data"];
+    d10 -> p9 [label="discovery and access metadata"];
+  }
+
+  doctor -> p2 [label="medical case / research result"];
+  hq -> p1 [label="customer reference"];
+  hq -> p5 [label="HR, inventory, internal finance"];
+  newfin -> p4 [label="domain API / event"];
+  pharma -> p6 [label="partner API / file / event"];
+  equip -> p7 [label="partner API / file / event"];
+
+  p1 -> p2 [label="minimal customer reference"];
+  p1 -> p4 [label="minimal customer reference"];
+  p6 -> p2 [label="approved pharma contract"];
+  p7 -> p2 [label="approved equipment contract"];
+
+  p1 -> p8 [label="DP: minimized customer slice"];
+  d4 -> p8 [label="DP: technical AI KPI"];
+  p4 -> p8 [label="DP: governed finance indicators"];
+  p5 -> p8 [label="DP: corporate indicators"];
+  p6 -> p8 [label="DP: approved partner data"];
+  p7 -> p8 [label="DP: approved equipment data"];
+
+  council -> p8 [label="classification, contracts, quality"];
+  council -> p9 [label="RBAC and usage policies"];
+  users -> p9 [label="search / access request / query"];
+  p9 -> users [label="authorized report"];
+}
+
